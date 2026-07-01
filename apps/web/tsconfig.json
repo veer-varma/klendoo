@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@klendoo/payment-core": ["../../packages/payment-core/dist"],
+      "@klendoo/db": ["../../packages/db"],
+      "@klendoo/booking-agent": ["../../services/booking-agent/dist"],
+      "@klendoo/follow-up-agent": ["../../services/follow-up-agent/dist"],
+      "@klendoo/reminder-agent": ["../../services/reminder-agent/dist"],
+      "@klendoo/orchestration-agent": ["../../services/orchestration-agent/dist"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

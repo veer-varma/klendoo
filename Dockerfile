@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Veer Varma. All rights reserved.
-FROM node:20-alpine
+FROM node:20
 
 WORKDIR /app
 

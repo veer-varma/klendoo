@@ -1,6 +1,4 @@
 # Copyright (c) 2026 Veer Varma. All rights reserved.
-version: '3.8'
-
 services:
   web:
     build: .

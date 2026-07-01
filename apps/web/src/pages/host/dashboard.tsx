@@ -2,20 +2,40 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 
+interface Meeting {
+  id: string;
+  name: string;
+  description: string;
+  duration: number;
+  price: number;
+  shareUrl: string;
+  bookingCount: number;
+  agents: { reminder: boolean; followUp: boolean };
+}
+
 export default function HostDashboard() {
   const router = useRouter();
   const [hostName, setHostName] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
-  const [stats, setStats] = useState({ bookings: 0, earnings: 0, upcoming: 0 });
+  const [walletBalance, setWalletBalance] = useState(5.0);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
-  const [weeklyHours, setWeeklyHours] = useState<Record<string, { start: string; end: string }>>({
-    Monday: { start: '09:00', end: '17:00' },
-    Tuesday: { start: '09:00', end: '17:00' },
-    Wednesday: { start: '09:00', end: '17:00' },
-    Thursday: { start: '09:00', end: '17:00' },
-    Friday: { start: '09:00', end: '17:00' },
-    Saturday: { start: '10:00', end: '14:00' },
-    Sunday: { start: '', end: '' },
+  const [newMeeting, setNewMeeting] = useState({
+    name: '',
+    description: '',
+    duration: 60,
+    price: 0.05,
+  });
+  const [agentCosts] = useState({
+    booking: 0.05,
+    reminder: 0.03,
+    followUp: 0.02,
+  });
+  const [totalSpent, setTotalSpent] = useState(0.0);
+  const [agentUsage, setAgentUsage] = useState({
+    reminder: 0,
+    followUp: 0,
+    booking: 0,
   });
 
   useEffect(() => {
@@ -25,21 +45,69 @@ export default function HostDashboard() {
       return;
     }
     setHostName(host);
-    fetchData();
+    loadData();
   }, []);
 
-  const fetchData = async () => {
+  const loadData = async () => {
     try {
       const res = await axios.get('/api/bookings');
       setBookings(res.data.bookings || []);
-      setStats({
-        bookings: res.data.bookings?.length || 0,
-        earnings: (res.data.bookings?.length || 0) * 0.05,
-        upcoming: Math.floor(Math.random() * 5) + 1,
-      });
+
+      const storedMeetings = localStorage.getItem('hostMeetings');
+      if (storedMeetings) {
+        setMeetings(JSON.parse(storedMeetings));
+      }
+
+      const storedUsage = localStorage.getItem('agentUsage');
+      if (storedUsage) {
+        const usage = JSON.parse(storedUsage);
+        setAgentUsage(usage);
+        setTotalSpent(
+          (usage.booking || 0) * agentCosts.booking +
+          (usage.reminder || 0) * agentCosts.reminder +
+          (usage.followUp || 0) * agentCosts.followUp
+        );
+      }
     } catch (err) {
-      console.error('Failed to fetch bookings', err);
+      console.error('Failed to load data', err);
     }
+  };
+
+  const createMeeting = () => {
+    if (!newMeeting.name) {
+      alert('Please enter meeting name');
+      return;
+    }
+
+    const meeting: Meeting = {
+      id: 'meeting_' + Date.now(),
+      ...newMeeting,
+      shareUrl: `${window.location.origin}/book/${Date.now()}`,
+      bookingCount: 0,
+      agents: { reminder: true, followUp: true },
+    };
+
+    const updated = [...meetings, meeting];
+    setMeetings(updated);
+    localStorage.setItem('hostMeetings', JSON.stringify(updated));
+
+    setNewMeeting({ name: '', description: '', duration: 60, price: 0.05 });
+    alert('Meeting created! Share the link with visitors.');
+  };
+
+  const toggleAgent = (meetingId: string, agent: 'reminder' | 'followUp') => {
+    const updated = meetings.map((m) =>
+      m.id === meetingId
+        ? { ...m, agents: { ...m.agents, [agent]: !m.agents[agent] } }
+        : m
+    );
+    setMeetings(updated);
+    localStorage.setItem('hostMeetings', JSON.stringify(updated));
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert('Link copied!');
   };
 
   const handleLogout = () => {
@@ -48,53 +116,63 @@ export default function HostDashboard() {
     router.push('/host/login');
   };
 
-  const saveAvailability = () => {
-    localStorage.setItem('hostAvailability', JSON.stringify(weeklyHours));
-    alert('Availability saved successfully!');
-  };
-
-  const handleHourChange = (day: string, field: 'start' | 'end', value: string) => {
-    setWeeklyHours((prev) => ({
-      ...prev,
-      [day]: { ...prev[day], [field]: value },
-    }));
+  const stats = {
+    meetings: meetings.length,
+    totalBookings: bookings.length,
+    walletBalance,
+    monthlySpent: totalSpent,
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">🎯 Klendoo Host</h1>
-          <button
-            onClick={handleLogout}
-            className="text-gray-600 hover:text-gray-900 font-semibold px-4 py-2 hover:bg-gray-100 rounded-lg transition"
-          >
-            Logout
-          </button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* Header */}
+      <div className="backdrop-blur-xl bg-black/40 border-b border-purple-500/20 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              🎯 Klendoo
+            </h1>
+            <p className="text-purple-300/70 text-sm mt-1">Calendar & Scheduling Platform</p>
+          </div>
+          <div className="flex items-center gap-8">
+            <div className="text-right bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl px-6 py-4 backdrop-blur">
+              <p className="text-green-300/70 text-xs font-semibold uppercase tracking-wide">Wallet Balance</p>
+              <p className="text-3xl font-black text-green-400 mt-1">${walletBalance.toFixed(2)}</p>
+              <p className="text-green-300/50 text-xs mt-1">USDC</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-6 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-semibold border border-red-500/30 transition-all duration-200"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Welcome back, {hostName}! 👋</h2>
-          <p className="text-gray-600 mt-1">Manage your bookings, availability, and earnings</p>
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="mb-12">
+          <h2 className="text-3xl font-black text-white">Welcome back, <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">{hostName}</span>! 👋</h2>
+          <p className="text-purple-300/70 mt-2">Manage your meetings, bookings, and automations</p>
         </div>
 
-        <div className="flex gap-2 mb-8 border-b border-gray-200 overflow-x-auto">
+        {/* Tabs */}
+        <div className="flex gap-2 mb-8 border-b border-purple-500/20 overflow-x-auto pb-0">
           {[
             { id: 'overview', label: '📊 Overview' },
-            { id: 'availability', label: '📅 Availability' },
+            { id: 'meetings', label: '🔗 Meetings' },
             { id: 'bookings', label: '📋 Bookings' },
-            { id: 'calendar', label: '🗓️ Calendar' },
-            { id: 'earnings', label: '💰 Earnings' },
+            { id: 'agents', label: '🤖 Agents' },
+            { id: 'usage', label: '💸 Usage' },
+            { id: 'settings', label: '⚙️ Settings' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 font-semibold border-b-2 whitespace-nowrap transition ${
+              className={`px-6 py-4 font-semibold border-b-2 whitespace-nowrap transition-all duration-200 ${
                 activeTab === tab.id
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-purple-400 text-purple-300 bg-purple-500/10'
+                  : 'border-transparent text-purple-300/60 hover:text-purple-300'
               }`}
             >
               {tab.label}
@@ -105,138 +183,216 @@ export default function HostDashboard() {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div>
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
-                <p className="text-gray-600 font-semibold text-sm">Total Bookings</p>
-                <p className="text-4xl font-bold text-gray-900 mt-3">{stats.bookings}</p>
-                <p className="text-xs text-gray-500 mt-2">All time</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
-                <p className="text-gray-600 font-semibold text-sm">Total Earnings</p>
-                <p className="text-4xl font-bold text-green-600 mt-3">${stats.earnings.toFixed(2)}</p>
-                <p className="text-xs text-gray-500 mt-2">USDC</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition">
-                <p className="text-gray-600 font-semibold text-sm">Upcoming Sessions</p>
-                <p className="text-4xl font-bold text-blue-600 mt-3">{stats.upcoming}</p>
-                <p className="text-xs text-gray-500 mt-2">Next 7 days</p>
-              </div>
+            <div className="grid md:grid-cols-4 gap-6 mb-8">
+              {[
+                { label: 'Meetings', value: stats.meetings, icon: '🔗', gradient: 'from-blue-500/20 to-cyan-500/20', border: 'border-blue-500/30', text: 'text-blue-400' },
+                { label: 'Bookings', value: stats.totalBookings, icon: '📋', gradient: 'from-purple-500/20 to-pink-500/20', border: 'border-purple-500/30', text: 'text-purple-400' },
+                { label: 'Balance', value: `$${stats.walletBalance.toFixed(2)}`, icon: '💰', gradient: 'from-green-500/20 to-emerald-500/20', border: 'border-green-500/30', text: 'text-green-400' },
+                { label: 'This Month', value: `$${stats.monthlySpent.toFixed(2)}`, icon: '📊', gradient: 'from-orange-500/20 to-red-500/20', border: 'border-orange-500/30', text: 'text-orange-400' },
+              ].map((stat, i) => (
+                <div
+                  key={i}
+                  className={`bg-gradient-to-br ${stat.gradient} border ${stat.border} rounded-2xl p-6 backdrop-blur-sm hover:border-opacity-60 transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/10`}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <p className="text-purple-300/70 font-semibold text-sm uppercase tracking-wide">{stat.label}</p>
+                    <span className="text-2xl">{stat.icon}</span>
+                  </div>
+                  <p className={`text-3xl font-black ${stat.text}`}>{stat.value}</p>
+                </div>
+              ))}
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Recent Bookings</h3>
-              {bookings.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-600">📭 No bookings yet</p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Set your availability to start receiving bookings!
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {bookings.slice(0, 5).map((booking: any) => (
-                    <div
-                      key={booking.id}
-                      className="border border-gray-200 rounded-lg p-4 flex justify-between items-center hover:bg-gray-50 transition"
-                    >
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {booking.visitorName || 'Visitor'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {booking.visitorEmail || 'visitor@example.com'}
-                        </p>
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm">
+                <h3 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+                  📋 Recent Bookings
+                </h3>
+                {bookings.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-purple-300/70">No bookings yet</p>
+                    <p className="text-purple-300/50 text-sm mt-1">Create a meeting link to get started!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {bookings.slice(0, 5).map((booking: any) => (
+                      <div key={booking.id} className="bg-slate-700/50 border border-purple-500/10 rounded-xl p-4 hover:bg-slate-700/70 transition-all duration-200">
+                        <p className="font-bold text-white">{booking.visitorName || 'Visitor'}</p>
+                        <p className="text-purple-300/70 text-sm">{booking.visitorEmail || 'visitor@example.com'}</p>
+                        <span className="inline-block mt-3 px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-xs font-bold border border-green-500/30">
+                          ✓ Confirmed
+                        </span>
                       </div>
-                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
-                        ✓ Confirmed
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm">
+                <h3 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+                  🔗 Active Meetings
+                </h3>
+                {meetings.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-purple-300/70">No meetings yet</p>
+                    <p className="text-purple-300/50 text-sm mt-1">Create one to start accepting bookings!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {meetings.slice(0, 5).map((meeting) => (
+                      <div key={meeting.id} className="bg-slate-700/50 border border-purple-500/10 rounded-xl p-4 hover:bg-slate-700/70 transition-all duration-200">
+                        <p className="font-bold text-white">{meeting.name}</p>
+                        <p className="text-purple-300/70 text-sm">{meeting.duration} min • ${meeting.price.toFixed(2)}</p>
+                        <p className="text-purple-400 text-xs mt-2 font-semibold">{meeting.bookingCount} bookings</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Availability Tab */}
-        {activeTab === 'availability' && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Set Your Availability</h3>
-            <p className="text-gray-600 mb-6">
-              Define your working hours for each day. Visitors can only book during these times.
-            </p>
-            <div className="space-y-4">
-              {Object.entries(weeklyHours).map(([day, hours]) => (
-                <div key={day} className="flex items-center gap-4 pb-4 border-b border-gray-200 last:border-b-0">
-                  <label className="w-32 font-semibold text-gray-700">{day}</label>
-                  {hours.start ? (
-                    <>
-                      <input
-                        type="time"
-                        value={hours.start}
-                        onChange={(e) => handleHourChange(day, 'start', e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-gray-600 font-semibold">to</span>
-                      <input
-                        type="time"
-                        value={hours.end}
-                        onChange={(e) => handleHourChange(day, 'end', e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </>
-                  ) : (
-                    <span className="text-gray-500 italic">Not available</span>
-                  )}
+        {/* Meetings Tab */}
+        {activeTab === 'meetings' && (
+          <div className="space-y-8">
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm">
+              <h3 className="text-2xl font-black text-white mb-8">Create New Meeting</h3>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-purple-300 font-bold mb-3">Meeting Name</label>
+                  <input
+                    type="text"
+                    value={newMeeting.name}
+                    onChange={(e) => setNewMeeting({ ...newMeeting, name: e.target.value })}
+                    placeholder="e.g., 30-min consultation"
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-purple-500/30 rounded-xl text-white placeholder-purple-400/50 focus:outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
+                  />
                 </div>
-              ))}
-              <button
-                onClick={saveAvailability}
-                className="mt-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg transition"
-              >
-                ✓ Save Availability
-              </button>
+                <div>
+                  <label className="block text-purple-300 font-bold mb-3">Description</label>
+                  <textarea
+                    value={newMeeting.description}
+                    onChange={(e) => setNewMeeting({ ...newMeeting, description: e.target.value })}
+                    placeholder="Tell visitors what this meeting is about..."
+                    className="w-full px-4 py-3 bg-slate-700/50 border border-purple-500/30 rounded-xl text-white placeholder-purple-400/50 focus:outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-purple-300 font-bold mb-3">Duration (minutes)</label>
+                    <input
+                      type="number"
+                      value={newMeeting.duration}
+                      onChange={(e) => setNewMeeting({ ...newMeeting, duration: parseInt(e.target.value) })}
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-purple-500/30 rounded-xl text-white focus:outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-purple-300 font-bold mb-3">Price (USDC)</label>
+                    <input
+                      type="number"
+                      value={newMeeting.price}
+                      onChange={(e) => setNewMeeting({ ...newMeeting, price: parseFloat(e.target.value) })}
+                      step="0.01"
+                      className="w-full px-4 py-3 bg-slate-700/50 border border-purple-500/30 rounded-xl text-white focus:outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={createMeeting}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold px-8 py-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-purple-500/50"
+                >
+                  ✓ Create Meeting Link
+                </button>
+              </div>
             </div>
+
+            {meetings.length > 0 && (
+              <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm">
+                <h3 className="text-2xl font-black text-white mb-8">Your Meeting Links</h3>
+                <div className="space-y-6">
+                  {meetings.map((meeting) => (
+                    <div key={meeting.id} className="bg-slate-700/50 border border-purple-500/20 rounded-xl p-6 hover:border-purple-500/40 transition-all duration-200">
+                      <div className="flex justify-between items-start mb-6">
+                        <div>
+                          <p className="text-lg font-bold text-white">{meeting.name}</p>
+                          <p className="text-purple-300/70 text-sm">{meeting.description}</p>
+                          <p className="text-purple-400 text-xs mt-2 font-semibold">
+                            {meeting.duration} min • ${meeting.price.toFixed(2)} • {meeting.bookingCount} bookings
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-slate-800/50 rounded-lg p-4 mb-4 border border-purple-500/10">
+                        <p className="text-purple-300/70 text-xs mb-2">Share this link:</p>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={meeting.shareUrl}
+                            readOnly
+                            className="flex-1 px-4 py-2 bg-slate-700 border border-purple-500/20 rounded-lg text-purple-300 text-sm font-mono"
+                          />
+                          <button
+                            onClick={() => copyToClipboard(meeting.shareUrl)}
+                            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all duration-200"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer bg-slate-800/50 px-4 py-2 rounded-lg border border-purple-500/10 hover:border-purple-500/20 transition-all duration-200">
+                          <input
+                            type="checkbox"
+                            checked={meeting.agents.reminder}
+                            onChange={() => toggleAgent(meeting.id, 'reminder')}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-purple-300 text-sm font-semibold">Reminder ($0.03)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-slate-800/50 px-4 py-2 rounded-lg border border-purple-500/10 hover:border-purple-500/20 transition-all duration-200">
+                          <input
+                            type="checkbox"
+                            checked={meeting.agents.followUp}
+                            onChange={() => toggleAgent(meeting.id, 'followUp')}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-purple-300 text-sm font-semibold">Follow-up ($0.02)</span>
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* Bookings Tab */}
         {activeTab === 'bookings' && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Your Bookings</h3>
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm">
+            <h3 className="text-2xl font-black text-white mb-8">All Bookings</h3>
             {bookings.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-600">📭 No bookings yet</p>
+              <div className="text-center py-12">
+                <p className="text-purple-300/70">No bookings yet</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {bookings.map((booking: any) => (
-                  <div
-                    key={booking.id}
-                    className="border border-gray-200 rounded-lg p-6 hover:shadow-lg transition"
-                  >
+                  <div key={booking.id} className="bg-slate-700/50 border border-purple-500/20 rounded-xl p-6 hover:border-purple-500/40 transition-all duration-200">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <p className="text-lg font-bold text-gray-900">
-                          {booking.visitorName || 'Visitor'}
-                        </p>
-                        <p className="text-gray-600">{booking.visitorEmail || 'visitor@example.com'}</p>
+                        <p className="text-lg font-bold text-white">{booking.visitorName || 'Visitor'}</p>
+                        <p className="text-purple-300/70">{booking.visitorEmail || 'visitor@example.com'}</p>
                       </div>
-                      <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold text-sm">
+                      <span className="px-4 py-2 bg-green-500/20 text-green-300 rounded-lg font-bold text-sm border border-green-500/30">
                         ✓ Confirmed
                       </span>
                     </div>
-                    <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-                      <div>
-                        <p className="text-sm text-gray-600">Session Type</p>
-                        <p className="font-semibold text-gray-900">
-                          {booking.sessionType || 'Coaching'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Duration</p>
-                        <p className="font-semibold text-gray-900">{booking.duration || 60} minutes</p>
-                      </div>
+                    <div className="text-sm text-purple-300/70">
+                      <p><strong>Type:</strong> {booking.sessionType || 'Session'}</p>
+                      <p><strong>Duration:</strong> {booking.duration || 60} minutes</p>
                     </div>
                   </div>
                 ))}
@@ -245,59 +401,130 @@ export default function HostDashboard() {
           </div>
         )}
 
-        {/* Calendar Tab */}
-        {activeTab === 'calendar' && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Connect Google Calendar</h3>
+        {/* Agents Tab */}
+        {activeTab === 'agents' && (
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm">
+            <h3 className="text-2xl font-black text-white mb-8">Available Agents</h3>
             <div className="space-y-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h4 className="font-semibold text-blue-900 mb-2">Why connect?</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>✓ Automatically block off your busy times</li>
-                  <li>✓ Prevent double bookings</li>
-                  <li>✓ Sync bookings to your calendar</li>
-                </ul>
-              </div>
-              <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg transition">
-                🔗 Connect Google Calendar
-              </button>
-              <p className="text-sm text-gray-600">
-                Status: <span className="font-semibold text-yellow-600">⚠️ Not Connected</span>
-              </p>
+              {[
+                {
+                  icon: '📧',
+                  name: 'Booking Agent',
+                  desc: 'Creates calendar event + sends confirmation',
+                  price: '$0.05',
+                  color: 'blue',
+                  details: 'Runs automatically when someone books'
+                },
+                {
+                  icon: '🔔',
+                  name: 'Reminder Agent',
+                  desc: 'Sends 1 hour before meeting',
+                  price: '$0.03',
+                  color: 'green',
+                  details: 'Keeps visitors informed before the meeting'
+                },
+                {
+                  icon: '💌',
+                  name: 'Follow-up Agent',
+                  desc: 'Sends 24 hours after meeting',
+                  price: '$0.02',
+                  color: 'purple',
+                  details: 'Gathers feedback and next steps'
+                },
+              ].map((agent, i) => (
+                <div key={i} className={`bg-gradient-to-br from-${agent.color}-500/10 to-${agent.color}-600/10 border border-${agent.color}-500/30 rounded-xl p-6 hover:border-${agent.color}-500/60 transition-all duration-200`}>
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <p className="text-lg font-bold text-white flex items-center gap-2">
+                        <span className="text-2xl">{agent.icon}</span>
+                        {agent.name}
+                      </p>
+                      <p className="text-purple-300/70 text-sm mt-1">{agent.desc}</p>
+                    </div>
+                    <span className={`px-4 py-2 bg-${agent.color}-500/20 text-${agent.color}-300 rounded-lg font-bold text-sm border border-${agent.color}-500/30`}>
+                      {agent.price}
+                    </span>
+                  </div>
+                  <p className="text-purple-300/70 text-sm">{agent.details}</p>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Earnings Tab */}
-        {activeTab === 'earnings' && (
-          <div className="bg-white rounded-lg shadow p-8">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Your Earnings</h3>
-            <div className="grid md:grid-cols-2 gap-8 mb-8">
-              <div className="bg-gradient-to-br from-green-400 to-green-600 rounded-lg p-8 text-white shadow-lg">
-                <p className="text-sm opacity-90 font-semibold">Total Earned (USDC)</p>
-                <p className="text-5xl font-bold mt-3">${stats.earnings.toFixed(2)}</p>
+        {/* Usage Tab */}
+        {activeTab === 'usage' && (
+          <div className="space-y-8">
+            <div className="grid md:grid-cols-3 gap-6">
+              {[
+                { label: 'Total Spent', value: `$${totalSpent.toFixed(2)}`, icon: '💸', gradient: 'from-orange-500/20 to-red-500/20', border: 'border-orange-500/30', text: 'text-orange-400' },
+                { label: 'Bookings Used', value: agentUsage.booking, icon: '📧', gradient: 'from-blue-500/20 to-cyan-500/20', border: 'border-blue-500/30', text: 'text-blue-400' },
+                { label: 'Reminders + Follow-ups', value: agentUsage.reminder + agentUsage.followUp, icon: '🔔', gradient: 'from-purple-500/20 to-pink-500/20', border: 'border-purple-500/30', text: 'text-purple-400' },
+              ].map((stat, i) => (
+                <div key={i} className={`bg-gradient-to-br ${stat.gradient} border ${stat.border} rounded-2xl p-6 backdrop-blur-sm`}>
+                  <p className="text-purple-300/70 font-semibold text-sm uppercase tracking-wide flex items-center gap-2">
+                    <span className="text-2xl">{stat.icon}</span>
+                    {stat.label}
+                  </p>
+                  <p className={`text-3xl font-black ${stat.text} mt-3`}>{stat.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm">
+              <h3 className="text-2xl font-black text-white mb-8">Cost Breakdown</h3>
+              <div className="space-y-4">
+                {[
+                  { label: `Booking Agent (${agentUsage.booking} × $0.05)`, amount: (agentUsage.booking * agentCosts.booking).toFixed(2) },
+                  { label: `Reminder Agent (${agentUsage.reminder} × $0.03)`, amount: (agentUsage.reminder * agentCosts.reminder).toFixed(2) },
+                  { label: `Follow-up Agent (${agentUsage.followUp} × $0.02)`, amount: (agentUsage.followUp * agentCosts.followUp).toFixed(2) },
+                ].map((item, i) => (
+                  <div key={i} className="flex justify-between items-center pb-4 border-b border-purple-500/10 last:border-b-0">
+                    <span className="text-purple-300/70">{item.label}</span>
+                    <span className="font-bold text-white">${item.amount}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center pt-4 text-lg font-bold bg-purple-500/10 border border-purple-500/20 rounded-lg px-4 py-4 mt-4">
+                  <span className="text-white">Total</span>
+                  <span className="text-purple-400">${totalSpent.toFixed(2)}</span>
+                </div>
               </div>
-              <div className="bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg p-8 text-white shadow-lg">
-                <p className="text-sm opacity-90 font-semibold">Algorand Wallet</p>
-                <p className="text-sm font-mono mt-3 break-all bg-blue-500 bg-opacity-30 rounded p-3">
-                  ALGO_TESTNET_WALLET
-                </p>
-                <p className="text-xs opacity-75 mt-2">Testnet address</p>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <div className="space-y-8">
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm">
+              <h3 className="text-2xl font-black text-white mb-8">Wallet Settings</h3>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-purple-300 font-bold mb-3">Your Wallet Address</label>
+                  <div className="bg-slate-700/50 p-4 rounded-lg border border-purple-500/20">
+                    <p className="font-mono text-sm text-purple-300">ALGO_TESTNET_WALLET_ADDRESS</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-purple-300 font-bold mb-3">Current Balance</label>
+                  <p className="text-4xl font-black text-green-400">${walletBalance.toFixed(2)} USDC</p>
+                </div>
+                <button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold px-8 py-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-green-500/50">
+                  💳 Fund Wallet
+                </button>
               </div>
             </div>
 
-            <div className="border-t border-gray-200 pt-6">
-              <h4 className="font-bold text-gray-900 mb-4">Payout Information</h4>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm text-gray-700">
-                <p>
-                  <strong>Fee:</strong> 0% (You keep 100% of earnings!)
-                </p>
-                <p>
-                  <strong>Payment Method:</strong> Direct USDC transfer to your Algorand wallet
-                </p>
-                <p>
-                  <strong>Settlement:</strong> Automatic upon booking confirmation
-                </p>
+            <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-sm">
+              <h3 className="text-2xl font-black text-white mb-8">Integrations</h3>
+              <div className="border border-purple-500/20 rounded-xl p-6 flex justify-between items-center bg-slate-700/50 hover:bg-slate-700/70 transition-all duration-200">
+                <div>
+                  <p className="font-bold text-white">Google Calendar</p>
+                  <p className="text-purple-300/70 text-sm">Sync your bookings automatically</p>
+                </div>
+                <button className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-lg text-sm font-bold transition-all duration-200">
+                  Connect
+                </button>
               </div>
             </div>
           </div>

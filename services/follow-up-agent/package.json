@@ -1,0 +1,12 @@
+{
+  "name": "@klendoo/follow-up-agent",
+  "version": "0.1.0",
+  "description": "Microagent for sending follow-up emails after bookings",
+  "main": "handler.ts",
+  "dependencies": {
+    "@klendoo/payment-core": "*",
+    "nodemailer": "^6.9.0"
+  },
+  "author": "Veer Varma",
+  "license": "MIT"
+}

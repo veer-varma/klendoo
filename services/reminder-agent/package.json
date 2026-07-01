@@ -1,0 +1,13 @@
+{
+  "name": "@klendoo/reminder-agent",
+  "version": "0.1.0",
+  "description": "Microagent for sending session reminders",
+  "main": "handler.ts",
+  "dependencies": {
+    "@klendoo/payment-core": "*",
+    "googleapis": "^118.0.0",
+    "nodemailer": "^6.9.0"
+  },
+  "author": "Veer Varma",
+  "license": "MIT"
+}

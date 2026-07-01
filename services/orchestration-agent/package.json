@@ -1,0 +1,11 @@
+{
+  "name": "@klendoo/orchestration-agent",
+  "version": "0.1.0",
+  "description": "Central orchestration agent for routing and conversation management",
+  "main": "handler.ts",
+  "dependencies": {
+    "@klendoo/payment-core": "*"
+  },
+  "author": "Veer Varma",
+  "license": "MIT"
+}

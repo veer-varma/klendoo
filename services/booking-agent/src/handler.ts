@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Veer Varma. All rights reserved.
 
-import { SettlementSDK, ActionType } from '@klendoo/payment-core';
+import { X402Middleware } from '@klendoo/payment-core';
 import { calendar_v3, gmail_v1, google } from 'googleapis';
 import nodemailer from 'nodemailer';
 
@@ -18,19 +18,24 @@ export interface BookingResponse {
   success: boolean;
   bookingId?: string;
   calendarEventId?: string;
-  settlementHash?: string;
+  transactionHash?: string;
   error?: string;
+  paymentRequired?: boolean;
+  x402?: {
+    statusCode: 402;
+    headers: Record<string, string>;
+  };
 }
 
+const BOOKING_AGENT_COST = 0.05;
+
 export class BookingAgent {
-  private settlement: SettlementSDK;
   private calendar: calendar_v3.Calendar;
   private gmail: gmail_v1.Gmail;
   private mailer: nodemailer.Transporter;
 
   constructor(
     googleAuth: any,
-    settlementSDK: SettlementSDK,
     emailConfig?: {
       host: string;
       port: number;
@@ -38,7 +43,6 @@ export class BookingAgent {
       pass: string;
     }
   ) {
-    this.settlement = settlementSDK;
     this.calendar = google.calendar({ version: 'v3', auth: googleAuth });
     this.gmail = google.gmail({ version: 'v1', auth: googleAuth });
 
@@ -53,7 +57,50 @@ export class BookingAgent {
     });
   }
 
-  async handle(request: BookingRequest): Promise<BookingResponse> {
+  /**
+   * Check if payment requirement is met
+   */
+  async checkPaymentRequirement(
+    headers: Record<string, string>,
+    hostAddress: string
+  ): Promise<{ authorized: boolean; response?: BookingResponse }> {
+    const hasPayment = await X402Middleware.hasValidPayment(
+      headers,
+      BOOKING_AGENT_COST,
+      hostAddress
+    );
+
+    if (!hasPayment) {
+      const x402Header = X402Middleware.generateX402Header({
+        amount: BOOKING_AGENT_COST,
+        recipient: hostAddress,
+        action: 'booking',
+        note: 'Booking agent invocation via x402'
+      });
+
+      return {
+        authorized: false,
+        response: {
+          success: false,
+          paymentRequired: true,
+          error: 'x402 Payment Required',
+          x402: {
+            statusCode: x402Header.statusCode,
+            headers: x402Header.headers
+          }
+        }
+      };
+    }
+
+    return { authorized: true };
+  }
+
+  async handle(request: BookingRequest, headers: Record<string, string>): Promise<BookingResponse> {
+    const paymentCheck = await this.checkPaymentRequirement(headers, request.hostAddress);
+    if (!paymentCheck.authorized) {
+      return paymentCheck.response!;
+    }
+
     try {
       const availableSlot = await this.findAvailableSlot(request.hostId, request.preferredTimes);
       if (!availableSlot) {
@@ -71,28 +118,12 @@ export class BookingAgent {
         request.duration
       );
 
-      const settlementResult = await this.settlement.settle(
-        request.hostAddress,
-        'booking',
-        0.05,
-        `Booking confirmation for ${request.visitorName}`
-      );
-
-      if (!settlementResult.success) {
-        return {
-          success: false,
-          error: `Settlement failed: ${settlementResult.error}`,
-          calendarEventId
-        };
-      }
-
       await this.sendConfirmationEmail(request.visitorEmail, request.visitorName, availableSlot);
 
       return {
         success: true,
         bookingId: `booking-${Date.now()}`,
-        calendarEventId,
-        settlementHash: settlementResult.transactionHash
+        calendarEventId
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -146,7 +177,7 @@ export class BookingAgent {
 
     const event = {
       summary: `Session with ${visitorEmail} (${sessionType})`,
-      description: `Booked via Klendoo\nSession Type: ${sessionType}`,
+      description: `Booked via Klendoo (x402 Payment Confirmed)\nSession Type: ${sessionType}`,
       start: { dateTime: start.toISOString() },
       end: { dateTime: end.toISOString() },
       attendees: [{ email: visitorEmail }],
@@ -181,6 +212,7 @@ export class BookingAgent {
         <p>Hi ${visitorName},</p>
         <p>Your session has been scheduled for <strong>${bookingTime}</strong></p>
         <p>You'll receive a calendar invite shortly.</p>
+        <p>Powered by Klendoo (x402 Payments)</p>
         <p>Best regards,<br>Klendoo</p>
       `
     };
@@ -189,12 +221,16 @@ export class BookingAgent {
   }
 }
 
-export async function handler(event: BookingRequest): Promise<BookingResponse> {
-  const settlement = new SettlementSDK(process.env.GOPLAUSIBLE_API_KEY);
+export async function handler(
+  event: BookingRequest,
+  context?: { headers: Record<string, string> }
+): Promise<BookingResponse> {
   const googleAuth = new google.auth.GoogleAuth({
     scopes: ['https://www.googleapis.com/auth/calendar', 'https://www.googleapis.com/auth/gmail.send']
   });
 
-  const agent = new BookingAgent(googleAuth, settlement);
-  return agent.handle(event);
+  const agent = new BookingAgent(googleAuth);
+  const headers = context?.headers || {};
+
+  return agent.handle(event, headers);
 }

@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    networks:
+      - klendoo-network
+    command: sh -c "cd apps/web && npm run dev"
+
+networks:
+  klendoo-network:
+    driver: bridge

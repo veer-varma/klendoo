@@ -1,0 +1,17 @@
+{
+  "name": "@klendoo/booking-agent",
+  "version": "0.1.0",
+  "description": "Microagent for handling booking creation and calendar sync",
+  "main": "handler.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@klendoo/payment-core": "*",
+    "googleapis": "^118.0.0",
+    "nodemailer": "^6.9.0"
+  },
+  "author": "Veer Varma",
+  "license": "MIT"
+}

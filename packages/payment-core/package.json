@@ -1,0 +1,26 @@
+{
+  "name": "@klendoo/payment-core",
+  "version": "0.1.0",
+  "description": "USDC settlement SDK with Algorand x402 micropayments",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "algosdk": "^2.4.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "author": "Veer Varma",
+  "license": "MIT"
+}

@@ -2,10 +2,21 @@
   "name": "@klendoo/landing",
   "version": "0.0.0",
   "private": true,
-  "description": "Marketing site + /transparency page. Directory placeholder from Sprint 0; the transparency page (lists settlement txns from ClientInteraction) lands in Sprint 1, per Klendoo_Sprint_Plan.md.",
+  "description": "Marketing site + /transparency page.",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "echo \"no build target yet — Sprint 1\" && exit 0",
-    "test": "echo \"no tests yet — Sprint 1\" && exit 0"
+    "build": "tsc -b",
+    "type-check": "tsc -b",
+    "test": "vitest run",
+    "generate:transparency": "node dist/transparency/generate.js"
+  },
+  "dependencies": {
+    "@klendoo/db": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

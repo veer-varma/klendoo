@@ -2,10 +2,22 @@
   "name": "@klendoo/followup-reminder-agent",
   "version": "0.0.0",
   "private": true,
-  "description": "Agent 3 — Reminder & Follow-up. Directory placeholder from Sprint 0; agent logic (SendGrid/Postmark send + payment-core.settle() call) lands in Sprint 1, per Klendoo_Sprint_Plan.md.",
+  "description": "Agent 3 — Reminder & Follow-up. Sends a reminder email via Postmark and settles a payment-core action.",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "echo \"no build target yet — Sprint 1\" && exit 0",
-    "test": "echo \"no tests yet — Sprint 1\" && exit 0"
+    "build": "tsc -b",
+    "type-check": "tsc -b",
+    "test": "vitest run",
+    "trigger": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@klendoo/db": "*",
+    "@klendoo/payment-core": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

@@ -2,6 +2,8 @@
   "files": [],
   "references": [
     { "path": "packages/db" },
-    { "path": "packages/payment-core" }
+    { "path": "packages/payment-core" },
+    { "path": "services/followup-reminder-agent" },
+    { "path": "apps/landing" }
   ]
 }

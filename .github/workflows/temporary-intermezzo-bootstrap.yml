@@ -42,7 +42,7 @@ jobs:
               touch /home/intermezzo-deploy/.ssh/authorized_keys
               chmod 600 /home/intermezzo-deploy/.ssh/authorized_keys
               chown intermezzo-deploy:intermezzo-deploy /home/intermezzo-deploy/.ssh/authorized_keys
-              PUB=\$(printf %s c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUpnVEdLNmRhL0h0WVVPLy8reEQwK2ozTWVHNHhSV0Zib2QybFJlaUwyWXQgaW50ZXJtZXp6by1kZXBsb3lAdGVzdG5ldAo= | base64 -d)
+              PUB=\$(printf %s c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUpnVEdLNmRhL0h0WVVPLy8reEQwK2ozTWVHN3hSV0Zib2QybFJlaUwyeXQgaW50ZXJtZXp6by1kZXBsb3lAdGVzdG5ldAo= | base64 -d)
               grep -qxF \"\$PUB\" /home/intermezzo-deploy/.ssh/authorized_keys || printf \"%s\\n\" \"\$PUB\" >> /home/intermezzo-deploy/.ssh/authorized_keys
               install -d -m 750 -o intermezzo-deploy -g intermezzo-deploy /opt/intermezzo-testnet
               printf \"bootstrap complete\\n\"

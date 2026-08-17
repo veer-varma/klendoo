@@ -1,0 +1,11 @@
+{
+  "name": "@klendoo/landing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Marketing site + /transparency page. Directory placeholder from Sprint 0; the transparency page (lists settlement txns from ClientInteraction) lands in Sprint 1, per Klendoo_Sprint_Plan.md.",
+  "type": "module",
+  "scripts": {
+    "build": "echo \"no build target yet — Sprint 1\" && exit 0",
+    "test": "echo \"no tests yet — Sprint 1\" && exit 0"
+  }
+}

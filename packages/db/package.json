@@ -1,0 +1,24 @@
+{
+  "name": "@klendoo/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Prisma schema and client for Klendoo — Sprint 0 slice: settlement logging + platform settings only, no TrustEdge yet (see Klendoo_Product_Definition_Trust_Graph_Spec.md).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "prisma generate && tsc -b",
+    "type-check": "tsc -b",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

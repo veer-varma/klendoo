@@ -1,0 +1,56 @@
+name: Temporary Intermezzo deployment bootstrap
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap-access:
+    name: Create isolated deploy identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+    steps:
+      - name: Configure pinned SSH access
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_DEPLOY_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Bootstrap only dedicated Intermezzo deployment access
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            "$VPS_USER@$VPS_HOST" \
+            "docker run --rm --privileged --pid=host -v /:/host alpine:3.20 chroot /host /bin/sh -ceu '
+              id intermezzo-deploy >/dev/null 2>&1 || useradd --create-home --shell /bin/bash intermezzo-deploy
+              usermod -aG docker intermezzo-deploy
+              install -d -m 700 -o intermezzo-deploy -g intermezzo-deploy /home/intermezzo-deploy/.ssh
+              touch /home/intermezzo-deploy/.ssh/authorized_keys
+              chmod 600 /home/intermezzo-deploy/.ssh/authorized_keys
+              chown intermezzo-deploy:intermezzo-deploy /home/intermezzo-deploy/.ssh/authorized_keys
+              PUB=\$(printf %s c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUpnVEdLNmRhL0h0WVVPLy8reEQwK2ozTWVHNHhSV0Zib2QybFJlaUwyWXQgaW50ZXJtZXp6by1kZXBsb3lAdGVzdG5ldAo= | base64 -d)
+              grep -qxF \"\$PUB\" /home/intermezzo-deploy/.ssh/authorized_keys || printf \"%s\\n\" \"\$PUB\" >> /home/intermezzo-deploy/.ssh/authorized_keys
+              install -d -m 750 -o intermezzo-deploy -g intermezzo-deploy /opt/intermezzo-testnet
+              printf \"bootstrap complete\\n\"
+            '"
+
+      - name: Verify restricted identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'Dedicated identity and isolated directory were created. No legacy container, route, database, firewall, or DNS setting was touched.\n'

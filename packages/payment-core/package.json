@@ -1,0 +1,21 @@
+{
+  "name": "@klendoo/payment-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "x402 settlement SDK. Sprint 0 skeleton: settle(actionType, amount) -> txnHash, PlatformSetting-driven pricing, facilitator abstracted so GoPlausible can be swapped (see Development Plan risks table).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "type-check": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@klendoo/db": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

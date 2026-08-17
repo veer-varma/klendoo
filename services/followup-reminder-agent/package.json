@@ -1,0 +1,11 @@
+{
+  "name": "@klendoo/followup-reminder-agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent 3 — Reminder & Follow-up. Directory placeholder from Sprint 0; agent logic (SendGrid/Postmark send + payment-core.settle() call) lands in Sprint 1, per Klendoo_Sprint_Plan.md.",
+  "type": "module",
+  "scripts": {
+    "build": "echo \"no build target yet — Sprint 1\" && exit 0",
+    "test": "echo \"no tests yet — Sprint 1\" && exit 0"
+  }
+}

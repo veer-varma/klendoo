@@ -1,0 +1,33 @@
+{
+  "name": "klendoo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Klendoo — micropayment-settled scheduling agent network on Algorand x402.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "postinstall": "prisma generate --schema=packages/db/prisma/schema.prisma",
+    "lint": "eslint . --ext .ts",
+    "type-check": "tsc -b",
+    "test": "vitest run",
+    "scan-secrets": "node scripts/scan-secrets.js",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^8.57.1",
+    "husky": "^9.1.7",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

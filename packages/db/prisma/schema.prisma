@@ -1,0 +1,57 @@
+// Klendoo — Sprint 0 schema slice.
+//
+// Scope note: this is deliberately the minimal schema for Milestone 1 / Sprint 0
+// per Klendoo_Sprint_Plan.md — "just ClientInteraction-style settlement logging,
+// not the full TrustEdge model yet". The full TrustEdge table, HostAccount,
+// ClientAccessRequest, User, and Invitee entities are Sprint 2+ per the build
+// order in Klendoo_Product_Definition_Trust_Graph_Spec.md §5. Do not add them
+// here ahead of that phase — extending this file is how TrustEdge lands later.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Cross-cutting config, keyed by name — used for the default per-action
+/// settlement price ($0.15) so payment-core never hardcodes it, per the
+/// pricing correction in the Trust Graph Spec §4.
+model PlatformSetting {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+enum InteractionStatus {
+  PENDING
+  SETTLED
+  FAILED
+}
+
+/// One row per priced action attempt. This is the Sprint 0/1 stand-in for the
+/// full ClientInteraction entity in the trust graph spec — same table name and
+/// intent, trimmed to only what settlement logging needs right now. `contextRef`
+/// is a free-form pointer to whatever booking/context record triggered the
+/// action (a manually-seeded test record is fine for Sprint 1, per the plan).
+model ClientInteraction {
+  id         String             @id @default(cuid())
+  actionType String
+  amount     Decimal            @db.Decimal(10, 4)
+  currency   String             @default("USDC")
+  network    String             @default("algorand-testnet")
+  status     InteractionStatus  @default(PENDING)
+  txnHash    String?
+  contextRef String?
+  createdAt  DateTime           @default(now())
+  settledAt  DateTime?
+
+  @@index([status])
+  @@map("client_interactions")
+}

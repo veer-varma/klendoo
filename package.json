@@ -14,6 +14,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "postinstall": "prisma generate --schema=packages/db/prisma/schema.prisma",
     "lint": "eslint . --ext .ts",
     "type-check": "tsc -b",
     "test": "vitest run",

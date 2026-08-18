@@ -46,6 +46,16 @@ outright (history of what was cut and why is worth keeping).
   paid once to activate the poll; closing/finalizing completes what was
   already paid for. Worth confirming this matches the intended pricing
   model.
+- **Contacts are phone-only but invites are email-only.** Sprint 6b's
+  `Contact` model deliberately only has name + phone, per Veer's exact
+  request ("name and phone number"). But poll invitations are still sent by
+  Postmark email — there's no SMS/voice channel yet — so inviting a saved
+  contact to a meeting still requires typing that person's email at invite
+  time; it's not saved on the Contact. This is a real gap between what's
+  captured and what's usable today, not just a nice-to-have. Options once
+  Veer weighs in: add an optional email to Contact now (contradicts the
+  literal request), or wait for a real SMS/voice invite channel to make
+  phone-only contacts fully self-sufficient.
 
 ## In progress — Sprint 5 (2026-08-18)
 
@@ -71,6 +81,35 @@ backlog entries.
 - Sprint 5c (real Super Admin UI) — done, see "Done" below. Closes the
   admin-auth gap above and the "Plans" editing UI Sprint 4 never got.
 
+## In progress — Sprint 6 (2026-08-18/19)
+
+Confirmed scope, per Veer's direction: "I want all hosts to have a sign in
+page from where they can setup meetings, they can also host a publicly
+shareable calendar. Hosts can also import contacts with name and phone
+number, they can setup their meetings from this interface." Split into
+6a/6b/6c, same sequential-sub-branch reasoning as every prior multi-part
+sprint — built in one overnight session, to be reviewed/merged together.
+
+- Sprint 6a (host auth, magic link) — done, see "Done" below. Closes the
+  "No host login" real gap below.
+- Sprint 6b (contacts + meeting creation) — done, see "Done" below.
+  Partially closes "HostAccount isn't wired into the agents" below — a
+  host's own dashboard now creates real `SchedulingPoll` rows tied to their
+  `HostAccount` (`hostId`), replacing the CLI-only `seedPolls.ts` path for
+  this flow specifically. The Reminder agent's `BookingContext` still
+  doesn't reference `HostAccount` — that part of the gap stays open.
+  **Sending** a created meeting (notifying invitees) still requires the
+  Negotiation agent's paid `/agents/negotiate` activation, which the
+  dashboard deliberately does not call — still blocked on Intermezzo (see
+  "Blocking deploy" above). The meeting detail page says this plainly
+  rather than implying the draft went out.
+- Sprint 6c (public busy/free calendar) — done, see "Done" below.
+- **Voice control** (explicitly future scope, not started): "in future, I
+  want this to be an app which is going to be voice controlled and the
+  host simply speaks and the app confirms its understanding and sets
+  meetings for them." No STT/NLU vendor chosen, no architecture decided —
+  tracked here only so it isn't lost, not scoped for any near-term sprint.
+
 ## Deferred product scope (deliberate cuts, not forgotten)
 
 - **Google Calendar OAuth + sync — explicitly post-launch** (confirmed
@@ -95,16 +134,15 @@ backlog entries.
   requires a real (if intentionally minimal) signed-cookie session behind
   `ADMIN_PASSWORD`. Single shared password, not per-admin accounts — fine
   for a solo founder, revisit if the team grows.
-- **HostAccount isn't wired into the agents yet.** The Reminder agent
-  (`BookingContext`) and Negotiation agent (`SchedulingPoll`) still take
-  plain `hostName`/`hostEmail` strings — they don't reference a real
-  `HostAccount` row. For hosts to actually use their own account (not a
-  manually-seeded test record) to create reminders/polls, this needs
-  connecting.
-- **No host login.** Nothing lets a `HostAccount` actually authenticate as
-  themselves — no password, no magic link, no session. Needed before a
-  host can use their own dashboard rather than an admin acting on their
-  behalf.
+- ~~**HostAccount isn't wired into the agents yet.**~~ **Partially closed by
+  Sprint 6b** — `SchedulingPoll` now has an optional `hostId`, and
+  `apps/host-dashboard` creates real host-owned polls through it. Still
+  open: the Reminder agent's `BookingContext` has no `HostAccount`
+  reference at all, and the CLI `seedPolls.ts` path still writes hostId-less
+  rows.
+- ~~**No host login.**~~ **Closed by Sprint 6a** — `apps/host-dashboard`
+  gives every `HostAccount` a real magic-link sign-in and signed-cookie
+  session (`HOST_SESSION_SECRET`, distinct from the admin's).
 - **Wallet provisioning isn't triggered on approval.** Per Veer's wallet
   model, every host should get a Klendoo-funded custodial wallet — but
   `approveHost()` doesn't call Intermezzo to create/fund one. Blocked
@@ -152,3 +190,12 @@ backlog entries.
 - Sprint 5c — real Super Admin UI: signed-cookie session auth,
   Registrations/Hosts/Plans pages, plan editing (the interface Sprint 4's
   "configurable... from the superadmin interface" needed) (PR pending)
+- Sprint 6a — host authentication: `@klendoo/auth-session` extracted from
+  the admin surface's session logic, `MagicLinkToken` model, new
+  `apps/host-dashboard` with magic-link login/verify/logout and a
+  session-gated dashboard shell (PR pending)
+- Sprint 6b — contacts + meeting creation: `Contact` model (name + phone),
+  add/import/remove UI, real form-based meeting creation tied to
+  `HostAccount` via `SchedulingPoll.hostId`, meeting list/detail pages that
+  plainly surface the still-blocked payment-gated activation step
+  (PR pending)

@@ -5,6 +5,12 @@ export type {
   ClientInteraction,
   PlatformSetting,
   InteractionStatus,
+  SchedulingPoll,
+  PollSlot,
+  PollInvitee,
+  PollResponse,
+  CalendarEvent,
+  PollStatus,
 } from "../generated/client/index.js";
 
 let client: PrismaClient | undefined;

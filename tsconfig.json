@@ -2,8 +2,10 @@
   "files": [],
   "references": [
     { "path": "packages/db" },
+    { "path": "packages/email" },
     { "path": "packages/payment-core" },
     { "path": "services/followup-reminder-agent" },
+    { "path": "services/negotiation-agent" },
     { "path": "apps/landing" }
   ]
 }

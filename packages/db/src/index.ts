@@ -11,6 +11,9 @@ export type {
   PollResponse,
   CalendarEvent,
   PollStatus,
+  Plan,
+  HostAccount,
+  HostStatus,
 } from "../generated/client/index.js";
 
 let client: PrismaClient | undefined;

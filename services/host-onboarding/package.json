@@ -1,0 +1,26 @@
+{
+  "name": "@klendoo/host-onboarding",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Host registration, plan selection, and admin approval. Not one of the five agents from the Development Plan — this is platform/account functionality, not a paid per-action agent, so it has no x402 middleware.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "type-check": "tsc -b",
+    "test": "vitest run",
+    "start": "node dist/server.js",
+    "seed-plans": "node dist/seedPlans.js"
+  },
+  "dependencies": {
+    "@klendoo/db": "*",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

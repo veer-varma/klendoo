@@ -9,8 +9,14 @@
 // Sprint 2 adds SchedulingPoll/PollSlot/PollInvitee/PollResponse/CalendarEvent
 // (Agent 2, Negotiation) — per Veer's 2026-08-17 direction: no Google Calendar
 // OAuth yet (deferred), Klendoo's own calendar is the source of truth for now.
-// Host identity stays plain fields (hostName/hostEmail), matching the Reminder
-// agent's BookingContext pattern, not a real HostAccount table yet.
+// Host identity there stays plain fields (hostName/hostEmail), matching the
+// Reminder agent's BookingContext pattern.
+//
+// Sprint 4 adds Plan and HostAccount — real host registration/approval, per
+// Veer's 2026-08-17 direction: plans and pricing must be admin-configurable
+// data (Plan rows), never hardcoded constants — same principle already
+// applied to action pricing via PlatformSetting. Still no TrustEdge/
+// ClientAccessRequest/confidence-engine model — that's later scope.
 
 generator client {
   provider = "prisma-client-js"
@@ -171,4 +177,62 @@ model CalendarEvent {
 
   @@index([hostEmail])
   @@map("calendar_events")
+}
+
+/// A pricing tier hosts can be on — admin-configurable data, not a hardcoded
+/// constant, per Veer's explicit direction (2026-08-17): "these should be
+/// configurable from the superadmin interface, because we could then do
+/// discounts etc." `billingInterval` is a plain string, not an enum, for
+/// the same reason `ActionType`/`PollStatus` neighbors stay data-shaped
+/// where a real admin might need a new value without a migration.
+model Plan {
+  id              String   @id @default(cuid())
+  /// Stable machine reference (e.g. "starter", "entrepreneur") — the
+  /// display name and price can change without breaking anything that
+  /// refers to a host's plan by key.
+  key             String   @unique
+  name            String
+  priceUsd        Decimal  @db.Decimal(10, 2)
+  /// "one_time" | "monthly" — plain string on purpose, see above.
+  billingInterval String
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  hosts HostAccount[]
+
+  @@map("plans")
+}
+
+enum HostStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// A registered host. This is the first real account identity in the
+/// schema — everything before this (BookingContext, SchedulingPoll) used
+/// plain hostName/hostEmail fields because there was nothing to reference.
+/// Existing agents are NOT migrated to reference this yet (out of scope for
+/// this slice) — that's a follow-up once the registration flow is real.
+model HostAccount {
+  id                   String     @id @default(cuid())
+  businessName         String
+  email                String     @unique
+  /// Used in future public URLs (klendoo.com/{slug}) — reserved now so it's
+  /// validated/unique from day one, not retrofitted once the booking page exists.
+  slug                 String     @unique
+  planId               String
+  status               HostStatus @default(PENDING)
+  /// Null until billing actually runs — see billing/ (stubbed this slice,
+  /// no live Stripe account provisioned yet).
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  createdAt            DateTime   @default(now())
+  approvedAt           DateTime?
+
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@index([status])
+  @@map("host_accounts")
 }

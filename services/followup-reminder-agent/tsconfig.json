@@ -6,6 +6,7 @@
   },
   "include": ["src"],
   "references": [
+    { "path": "../../packages/bazaar-listing" },
     { "path": "../../packages/db" },
     { "path": "../../packages/email" },
     { "path": "../../packages/payment-core" }

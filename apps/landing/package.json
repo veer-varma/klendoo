@@ -2,7 +2,7 @@
   "name": "@klendoo/landing",
   "version": "0.0.0",
   "private": true,
-  "description": "Marketing site + /transparency page.",
+  "description": "Marketing site + /transparency page + aggregated /.well-known/x402 discovery manifest (Agent 5, Bazaar).",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,10 +10,14 @@
     "build": "tsc -b",
     "type-check": "tsc -b",
     "test": "vitest run",
-    "generate:transparency": "node dist/transparency/generate.js"
+    "generate:transparency": "node dist/transparency/generate.js",
+    "generate:manifest": "node dist/wellKnown/generate.js"
   },
   "dependencies": {
-    "@klendoo/db": "*"
+    "@klendoo/bazaar-listing": "*",
+    "@klendoo/db": "*",
+    "@klendoo/payment-core": "*",
+    "@x402/avm": "^2.21.0"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

@@ -5,5 +5,9 @@
     "rootDir": "./src"
   },
   "include": ["src"],
-  "references": [{ "path": "../../packages/db" }]
+  "references": [
+    { "path": "../../packages/bazaar-listing" },
+    { "path": "../../packages/db" },
+    { "path": "../../packages/payment-core" }
+  ]
 }

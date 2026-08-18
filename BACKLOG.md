@@ -189,18 +189,18 @@ sprint — built in one overnight session, to be reviewed/merged together.
   usage-tracking wired into Reminder and Negotiation (PR #11)
 - Sprint 5c — real Super Admin UI: signed-cookie session auth,
   Registrations/Hosts/Plans pages, plan editing (the interface Sprint 4's
-  "configurable... from the superadmin interface" needed) (PR pending)
+  "configurable... from the superadmin interface" needed) (PR #12)
 - Sprint 6a — host authentication: `@klendoo/auth-session` extracted from
   the admin surface's session logic, `MagicLinkToken` model, new
   `apps/host-dashboard` with magic-link login/verify/logout and a
-  session-gated dashboard shell (PR pending)
+  session-gated dashboard shell (PR #13)
 - Sprint 6b — contacts + meeting creation: `Contact` model (name + phone),
   add/import/remove UI, real form-based meeting creation tied to
   `HostAccount` via `SchedulingPoll.hostId`, meeting list/detail pages that
   plainly surface the still-blocked payment-gated activation step
-  (PR pending)
+  (PR #14)
 - Sprint 6c — public busy/free calendar: `GET /c/:slug` on
   `apps/host-dashboard`, no auth required, shows only busy/free time
   blocks for the next 60 days (no meeting titles or attendee info — per
   Veer's explicit "Busy/free only" answer), 404s for an unapproved or
-  unknown slug rather than confirming the business exists (PR pending)
+  unknown slug rather than confirming the business exists (PR #15)

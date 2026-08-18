@@ -1,9 +1,8 @@
 # negotiation-agent (Agent 2)
 
-Sprint 2 slice, per Veer's 2026-08-17 direction: no Google Calendar OAuth
-yet (deferred), Klendoo's own calendar (`CalendarEvent`, added this sprint)
-is the source of truth for now — Google/Outlook sync is later work that
-reads/writes into this same model.
+Per Veer's 2026-08-17 direction: no Google Calendar OAuth yet (deferred),
+Klendoo's own calendar (`CalendarEvent`) is the source of truth for now —
+Google/Outlook sync is later work that reads/writes into this same model.
 
 ## What this does
 
@@ -15,14 +14,29 @@ reads/writes into this same model.
    invitee their own link with the candidate times.
 3. Each invitee visits `GET /polls/:token` — a plain HTML page, no login —
    and checks every slot that works for them, `POST`ed back to the same URL.
+4. `closeExpiredPolls()` finds every `OPEN` poll past its deadline and
+   closes each one (`closePoll.ts`): computes the majority slot (majority of
+   *responders*, earliest slot wins a tie — explicit product decisions from
+   Veer, not defaults this code invented), writes the `CalendarEvent`,
+   emails the confirmed attendees and the host, and sends a "most people
+   picked this, can you reconsider?" note to whoever couldn't make it. If
+   nobody marked anything available at all, the poll is cancelled and the
+   host is told, instead of finalizing an empty meeting.
 
-**Not built yet (Sprint 3):** the deadline-triggered close, majority
-computation (majority of *responders*, earliest slot wins a tie — both
-explicit product decisions, not defaults picked by this code), the
-reconsideration outreach to people who couldn't make the winning slot, and
-writing the confirmed `CalendarEvent`. The schema already has the shape for
-all of this (`SchedulingPoll.status`, `winningSlotId`,
-`PollInvitee.reconsiderSentAt`) so Sprint 3 extends rather than migrates.
+Reconsideration is a courtesy notice, not a re-vote — the winning slot is
+decided and the calendar event written in the same call that sends those
+emails, not held open pending a reply. Worth confirming with Veer if an
+actual re-vote is wanted instead.
+
+## The one real gap: nothing calls closeExpiredPolls() on a schedule
+
+Every agent so far has acted in response to something happening right now
+— a payment settling, an email arriving. Closing polls is the first thing
+that needs to happen automatically *after a deadline passes*, and nothing
+in this codebase runs on a timer. `closePollsCli.ts` lets you trigger it by
+hand; wiring it to a real cron/scheduled job needs actual deployed
+infrastructure to run it on, which doesn't exist yet — that's Ops scope
+once there's somewhere to deploy to, not something to fake here.
 
 ## Why GET, and why a draft-then-pay flow
 
@@ -32,6 +46,11 @@ fits cleanly in a query string (multiple slots, multiple invitees), so
 instead of trying to cram arrays into query params, the poll is built and
 persisted first (free, internal), and payment is what activates and sends
 it — closer to how a real "build then submit" form would work anyway.
+
+Closing a poll isn't a separate paid x402 action either — the host already
+paid once to run the negotiation when the poll was activated; resolving it
+is completing what was already paid for, not a new billable event. Worth
+confirming if the business model actually wants this priced separately.
 
 ## Running it locally
 
@@ -45,4 +64,8 @@ npm run start --workspace=@klendoo/negotiation-agent
 # KLENDOO_INTERMEZZO_API_KEY.
 npm run trigger --workspace=@klendoo/negotiation-agent -- \
   --user host-123 --url http://localhost:4022/agents/negotiate
+
+# Manually close every expired open poll — needs DATABASE_URL,
+# POSTMARK_SERVER_API_TOKEN, PUBLIC_BASE_URL.
+npm run close-polls --workspace=@klendoo/negotiation-agent
 ```

@@ -40,3 +40,54 @@ export function buildReconsiderEmail(input: PollEmailInput & { winningSlot: { st
       `Otherwise no action needed — we'll go with the group.\n\n— Sent by Klendoo`,
   };
 }
+
+export interface ConfirmationEmailInput {
+  hostName: string;
+  title: string;
+  winningSlot: { startTime: string; endTime: string };
+}
+
+/** Sent to each invitee who marked the winning slot available — the actual attendees. */
+export function buildAttendeeConfirmationEmail(
+  input: ConfirmationEmailInput & { inviteeName: string; inviteeEmail: string },
+): SendEmailParams {
+  return {
+    to: input.inviteeEmail,
+    subject: `Confirmed: "${input.title}" — ${formatSlot(input.winningSlot.startTime)}`,
+    textBody:
+      `Hi ${input.inviteeName},\n\n` +
+      `"${input.title}" with ${input.hostName} is confirmed for ${formatSlot(input.winningSlot.startTime)}.\n\n` +
+      `— Sent by Klendoo`,
+  };
+}
+
+/** Sent to the host once a poll finalizes, listing who's actually confirmed. */
+export function buildHostConfirmationEmail(
+  input: ConfirmationEmailInput & { hostEmail: string; attendeeNames: string[] },
+): SendEmailParams {
+  const attendees = input.attendeeNames.length > 0 ? input.attendeeNames.join(", ") : "no one else";
+  return {
+    to: input.hostEmail,
+    subject: `Confirmed: "${input.title}" — ${formatSlot(input.winningSlot.startTime)}`,
+    textBody:
+      `Hi ${input.hostName},\n\n` +
+      `"${input.title}" is confirmed for ${formatSlot(input.winningSlot.startTime)}, with ${attendees}.\n\n` +
+      `— Sent by Klendoo`,
+  };
+}
+
+/** Sent to the host only — nobody marked any candidate slot as available. */
+export function buildNoConsensusEmail(input: {
+  hostName: string;
+  hostEmail: string;
+  title: string;
+}): SendEmailParams {
+  return {
+    to: input.hostEmail,
+    subject: `No one could make any of the times for "${input.title}"`,
+    textBody:
+      `Hi ${input.hostName},\n\n` +
+      `Nobody marked any of the proposed times as available for "${input.title}". ` +
+      `You'll need to propose new times.\n\n— Sent by Klendoo`,
+  };
+}

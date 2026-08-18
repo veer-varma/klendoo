@@ -1,0 +1,22 @@
+{
+  "name": "@klendoo/bazaar-listing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent 5 (Bazaar). Per the Trust Graph Spec §2: no dedicated service — a listing manifest wrapping Agents 1/2/3's existing priced endpoints, not new agent logic. Shared merchant metadata + discovery manifest builder used by every paid service and apps/landing's aggregated /.well-known/x402.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "type-check": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@x402/avm": "^2.21.0",
+    "@x402/core": "^2.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

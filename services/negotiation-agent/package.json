@@ -15,9 +15,11 @@
     "close-polls": "node dist/closePollsCli.js"
   },
   "dependencies": {
+    "@klendoo/bazaar-listing": "*",
     "@klendoo/db": "*",
     "@klendoo/email": "*",
     "@klendoo/payment-core": "*",
+    "@x402/avm": "^2.21.0",
     "@x402/express": "^2.21.0",
     "@x402/extensions": "^2.21.0",
     "dotenv": "^16.4.5",

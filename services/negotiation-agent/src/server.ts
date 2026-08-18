@@ -3,6 +3,7 @@ import "dotenv/config";
 import express from "express";
 import { paymentMiddleware } from "@x402/express";
 import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
+import { getNetworkFromCaip2 } from "@x402/avm";
 import {
   createResourceServer,
   resolveNetwork,
@@ -10,6 +11,7 @@ import {
 } from "@klendoo/payment-core";
 import { getDb } from "@klendoo/db";
 import { PostmarkClient } from "@klendoo/email";
+import { merchantExtension, buildDiscoveryManifest } from "@klendoo/bazaar-listing";
 import { buildPollInvitationEmail } from "./pollEmail.js";
 import { renderResponseForm, renderResponseThanks } from "./responseForm.js";
 
@@ -71,12 +73,29 @@ async function main() {
             ...declareDiscoveryExtension({
               output: { example: { ok: true, invitees: 1 } },
             }),
+            ...merchantExtension(),
           },
         },
       },
       server,
     ),
   );
+
+  // Agent 5 (Bazaar) — see the Reminder agent's server.ts for the same
+  // comment. This is this service's own manifest (just its one resource).
+  app.get("/.well-known/x402", (_req, res) => {
+    res.json(
+      buildDiscoveryManifest([
+        {
+          url: `${publicBaseUrl}/agents/negotiate`,
+          method: "GET",
+          network: getNetworkFromCaip2(network) === "mainnet" ? "mainnet" : "testnet",
+          priceUsd: price,
+          payTo: payToAddress,
+        },
+      ]),
+    );
+  });
 
   // Runs only once payment has settled — see the Reminder agent's server.ts
   // for the same known limitation (payment already happened if this fails).

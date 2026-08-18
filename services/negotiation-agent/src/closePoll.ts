@@ -7,6 +7,7 @@ import {
   buildReconsiderEmail,
   buildNoConsensusEmail,
 } from "./pollEmail.js";
+import { recordNegotiationTrust } from "./recordNegotiationTrust.js";
 
 export interface ClosePollResult {
   pollId: string;
@@ -93,6 +94,8 @@ export async function closeAndFinalizePoll(
   });
 
   await db.schedulingPoll.update({ where: { id: poll.id }, data: { status: "FINALIZED" } });
+
+  await recordNegotiationTrust(poll.hostEmail, availableInvitees.map((i) => i.email));
 
   const winningSlotEmailShape = {
     startTime: winningSlot.startTime.toISOString(),

@@ -13,6 +13,7 @@ import { PostmarkClient } from "@klendoo/email";
 import { merchantExtension, buildDiscoveryManifest } from "@klendoo/bazaar-listing";
 import { buildReminderEmail } from "./reminderEmail.js";
 import { contextFromQuery } from "./reminderContextQuery.js";
+import { recordReminderTrust } from "./recordReminderTrust.js";
 
 const PORT = Number(process.env.PORT ?? 4021);
 
@@ -118,6 +119,7 @@ async function main() {
     try {
       const context = contextFromQuery(req.query as Record<string, unknown>);
       const { messageId } = await new PostmarkClient().sendEmail(buildReminderEmail(context));
+      await recordReminderTrust(context);
       res.json({ ok: true, emailMessageId: messageId });
     } catch (err) {
       console.error("Reminder send failed after settlement:", err);

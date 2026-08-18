@@ -14,6 +14,8 @@ export type {
   Plan,
   HostAccount,
   HostStatus,
+  TrustEdge,
+  TrustEdgeType,
 } from "../generated/client/index.js";
 
 let client: PrismaClient | undefined;

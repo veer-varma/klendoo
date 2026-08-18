@@ -1,4 +1,4 @@
-import type { SendEmailParams } from "./postmark.js";
+import type { SendEmailParams } from "@klendoo/email";
 import type { BookingContext } from "./types.js";
 
 /**

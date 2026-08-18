@@ -1,11 +1,16 @@
-// Klendoo — Sprint 0 schema slice.
+// Klendoo — schema.
 //
-// Scope note: this is deliberately the minimal schema for Milestone 1 / Sprint 0
-// per Klendoo_Sprint_Plan.md — "just ClientInteraction-style settlement logging,
-// not the full TrustEdge model yet". The full TrustEdge table, HostAccount,
-// ClientAccessRequest, User, and Invitee entities are Sprint 2+ per the build
-// order in Klendoo_Product_Definition_Trust_Graph_Spec.md §5. Do not add them
-// here ahead of that phase — extending this file is how TrustEdge lands later.
+// Sprint 0/1 scope note: started deliberately minimal per Klendoo_Sprint_Plan.md
+// — "just ClientInteraction-style settlement logging, not the full TrustEdge
+// model yet". TrustEdge, HostAccount, ClientAccessRequest, and a real User
+// entity are still not here — that's the "entrepreneur piece" / host
+// registration sprint, later than the scheduling work below.
+//
+// Sprint 2 adds SchedulingPoll/PollSlot/PollInvitee/PollResponse/CalendarEvent
+// (Agent 2, Negotiation) — per Veer's 2026-08-17 direction: no Google Calendar
+// OAuth yet (deferred), Klendoo's own calendar is the source of truth for now.
+// Host identity stays plain fields (hostName/hostEmail), matching the Reminder
+// agent's BookingContext pattern, not a real HostAccount table yet.
 
 generator client {
   provider = "prisma-client-js"
@@ -54,4 +59,116 @@ model ClientInteraction {
 
   @@index([status])
   @@map("client_interactions")
+}
+
+enum PollStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  FINALIZED
+  CANCELLED
+}
+
+/// A scheduling coordination request — Agent 2 (Negotiation)'s Sprint 2 slice.
+///
+/// Lifecycle: DRAFT (built, not yet paid/sent) -> OPEN (paid, invitees
+/// notified, awaiting responses) -> CLOSED (deadline passed, majority
+/// computed — Sprint 3 also adds reconsideration outreach here) ->
+/// FINALIZED (a CalendarEvent exists) | CANCELLED.
+model SchedulingPoll {
+  id            String     @id @default(cuid())
+  hostName      String
+  hostEmail     String
+  title         String
+  deadline      DateTime
+  status        PollStatus @default(DRAFT)
+  /// Set once CLOSED — the slot id majority-of-responders picked (earliest
+  /// slot wins a tie). Not a foreign key on purpose: keeping it a plain id
+  /// avoids a circular relation with PollSlot.
+  winningSlotId String?
+  createdAt     DateTime   @default(now())
+  openedAt      DateTime?
+  closedAt      DateTime?
+
+  slots     PollSlot[]
+  invitees  PollInvitee[]
+  responses PollResponse[]
+  event     CalendarEvent?
+
+  @@index([status])
+  @@map("scheduling_polls")
+}
+
+/// One candidate meeting time for a poll.
+model PollSlot {
+  id        String   @id @default(cuid())
+  pollId    String
+  startTime DateTime
+  endTime   DateTime
+
+  poll      SchedulingPoll @relation(fields: [pollId], references: [id])
+  responses PollResponse[]
+
+  @@index([pollId])
+  @@map("poll_slots")
+}
+
+/// One invited person for a poll. `token` is the unguessable id in their
+/// response link — deliberately not the poll id itself, so one invitee
+/// can't see or affect another's response via a shared/guessed URL.
+model PollInvitee {
+  id               String    @id @default(cuid())
+  pollId           String
+  name             String
+  email            String
+  token            String    @unique @default(cuid())
+  respondedAt      DateTime?
+  /// Sprint 3 scope — set when the "most people picked a time you can't
+  /// make, can you reconsider?" follow-up goes out.
+  reconsiderSentAt DateTime?
+
+  poll      SchedulingPoll @relation(fields: [pollId], references: [id])
+  responses PollResponse[]
+
+  @@index([pollId])
+  @@map("poll_invitees")
+}
+
+/// One invitee's answer for one slot. Availability is captured per slot,
+/// not as a single pick, because a majority needs to be computed across
+/// everyone's answers — an invitee who's free for 3 of 4 candidate times
+/// can't be represented by picking just one.
+model PollResponse {
+  id        String  @id @default(cuid())
+  pollId    String
+  slotId    String
+  inviteeId String
+  available Boolean
+
+  poll    SchedulingPoll @relation(fields: [pollId], references: [id])
+  slot    PollSlot       @relation(fields: [slotId], references: [id])
+  invitee PollInvitee    @relation(fields: [inviteeId], references: [id])
+
+  @@unique([slotId, inviteeId])
+  @@map("poll_responses")
+}
+
+/// The confirmed meeting once a poll finalizes (Sprint 3 writes these;
+/// modeled now so the relation exists from the start). `attendees` is a
+/// simple comma-separated list for this slice — normalizing into its own
+/// table is later scope once real usage shows it's needed.
+model CalendarEvent {
+  id        String   @id @default(cuid())
+  hostEmail String
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  attendees String
+  pollId    String?  @unique
+  createdAt DateTime @default(now())
+
+  poll SchedulingPoll? @relation(fields: [pollId], references: [id])
+
+  @@index([hostEmail])
+  @@map("calendar_events")
 }

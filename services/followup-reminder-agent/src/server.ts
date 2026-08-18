@@ -8,7 +8,7 @@ import {
   resolveNetwork,
   resolveDefaultPrice,
 } from "@klendoo/payment-core";
-import { PostmarkClient } from "./postmark.js";
+import { PostmarkClient } from "@klendoo/email";
 import { buildReminderEmail } from "./reminderEmail.js";
 import { contextFromQuery } from "./reminderContextQuery.js";
 

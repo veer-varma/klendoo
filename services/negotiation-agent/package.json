@@ -1,8 +1,8 @@
 {
-  "name": "@klendoo/followup-reminder-agent",
+  "name": "@klendoo/negotiation-agent",
   "version": "0.0.0",
   "private": true,
-  "description": "Agent 3 — Reminder & Follow-up. A real x402-gated GET /agents/reminder endpoint: caller pays via a custodial wallet (Intermezzo), payment-core logs the settlement, then the handler sends the reminder via Postmark.",
+  "description": "Agent 2 — Negotiation. A host proposes candidate times; invitees mark availability per slot via a poll link; a paid x402-gated endpoint activates and sends the poll. Deadline-triggered majority + calendar write is Sprint 3.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

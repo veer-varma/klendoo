@@ -6,6 +6,10 @@
  * provisioned environment (Klendoo_Environment_Handoff_FROM_MANUS.md) set up
  * Postmark instead — POSTMARK_SERVER_API_TOKEN exists as a secret,
  * no SendGrid key does. Built against what's actually provisioned.
+ *
+ * Extracted from services/followup-reminder-agent into its own package in
+ * Sprint 2, once services/negotiation-agent needed the same client — shared
+ * infrastructure across agent services belongs here, not duplicated.
  */
 
 export interface SendEmailParams {

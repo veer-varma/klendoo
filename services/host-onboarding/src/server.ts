@@ -11,8 +11,8 @@ import {
   requireAdminPassword,
   requireSessionSecret,
   verifyPassword,
-  createSessionCookieValue,
-  verifySessionCookieValue,
+  createAdminSessionCookieValue,
+  verifyAdminSessionCookieValue,
   parseCookies,
 } from "./admin/session.js";
 import { renderLoginPage } from "./admin/loginPage.js";
@@ -68,7 +68,7 @@ async function main() {
       res.type("html").status(401).send(renderLoginPage("Wrong password."));
       return;
     }
-    const cookieValue = createSessionCookieValue(sessionSecret);
+    const cookieValue = createAdminSessionCookieValue(sessionSecret);
     res.setHeader(
       "Set-Cookie",
       `${SESSION_COOKIE_NAME}=${cookieValue}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200`,
@@ -83,7 +83,7 @@ async function main() {
 
   function requireAdminSession(req: Request, res: Response, next: NextFunction) {
     const cookies = parseCookies(req.headers.cookie);
-    if (verifySessionCookieValue(cookies[SESSION_COOKIE_NAME], sessionSecret)) {
+    if (verifyAdminSessionCookieValue(cookies[SESSION_COOKIE_NAME], sessionSecret)) {
       next();
       return;
     }

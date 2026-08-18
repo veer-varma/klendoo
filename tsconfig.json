@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    { "path": "packages/auth-session" },
     { "path": "packages/bazaar-listing" },
     { "path": "packages/db" },
     { "path": "packages/email" },
@@ -9,6 +10,7 @@
     { "path": "services/followup-reminder-agent" },
     { "path": "services/negotiation-agent" },
     { "path": "services/host-onboarding" },
-    { "path": "apps/landing" }
+    { "path": "apps/landing" },
+    { "path": "apps/host-dashboard" }
   ]
 }

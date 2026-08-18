@@ -16,6 +16,8 @@ export type {
   HostStatus,
   TrustEdge,
   TrustEdgeType,
+  MagicLinkToken,
+  Contact,
 } from "../generated/client/index.js";
 
 let client: PrismaClient | undefined;

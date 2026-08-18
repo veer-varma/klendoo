@@ -199,3 +199,8 @@ sprint — built in one overnight session, to be reviewed/merged together.
   `HostAccount` via `SchedulingPoll.hostId`, meeting list/detail pages that
   plainly surface the still-blocked payment-gated activation step
   (PR pending)
+- Sprint 6c — public busy/free calendar: `GET /c/:slug` on
+  `apps/host-dashboard`, no auth required, shows only busy/free time
+  blocks for the next 60 days (no meeting titles or attendee info — per
+  Veer's explicit "Busy/free only" answer), 404s for an unapproved or
+  unknown slug rather than confirming the business exists (PR pending)

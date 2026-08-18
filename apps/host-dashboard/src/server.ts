@@ -19,6 +19,17 @@ import { createHostMeeting, listHostMeetings, getHostMeeting, InvalidMeetingErro
 import { renderMeetingsPage } from "./meetingsPage.js";
 import { renderNewMeetingPage } from "./newMeetingPage.js";
 import { renderMeetingDetailPage } from "./meetingDetailPage.js";
+import { getPublicCalendar } from "./publicCalendar.js";
+import { renderPublicCalendarPage, renderPublicCalendarNotFoundPage } from "./publicCalendarPage.js";
+
+function formatDateLabel(d: Date): string {
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function formatTimeRange(start: Date, end: Date): string {
+  const fmt = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
+  return `${fmt(start)} – ${fmt(end)} UTC`;
+}
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 16).replace("T", " ");
@@ -280,6 +291,25 @@ async function main() {
           respondedAt: i.respondedAt ? formatDate(i.respondedAt) : null,
         })),
       }),
+    );
+  });
+
+  // ---------- public busy/free calendar (no auth) ----------
+
+  app.get("/c/:slug", async (req, res) => {
+    const result = await getPublicCalendar(req.params.slug);
+    if (!result) {
+      res.status(404).type("html").send(renderPublicCalendarNotFoundPage());
+      return;
+    }
+    res.type("html").send(
+      renderPublicCalendarPage(
+        result.businessName,
+        result.busyBlocks.map((b) => ({
+          dateLabel: formatDateLabel(b.startTime),
+          timeRange: formatTimeRange(b.startTime, b.endTime),
+        })),
+      ),
     );
   });
 

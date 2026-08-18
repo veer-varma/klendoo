@@ -8,7 +8,7 @@ import type { BookingContext } from "./types.js";
  */
 export function sampleBookingContext(overrides: Partial<BookingContext> = {}): BookingContext {
   return {
-    id: `seed-${Date.now()}`,
+    contextRef: `seed-${Date.now()}`,
     hostName: "Dr. Varma",
     hostEmail: "ops@klendoo.com",
     visitorName: "Test Visitor",

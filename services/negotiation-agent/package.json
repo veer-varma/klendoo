@@ -2,7 +2,7 @@
   "name": "@klendoo/negotiation-agent",
   "version": "0.0.0",
   "private": true,
-  "description": "Agent 2 — Negotiation. A host proposes candidate times; invitees mark availability per slot via a poll link; a paid x402-gated endpoint activates and sends the poll. Deadline-triggered majority + calendar write is Sprint 3.",
+  "description": "Agent 2 — Negotiation. A host proposes candidate times; invitees mark availability per slot via a poll link; a paid x402-gated endpoint activates and sends the poll. closeExpiredPolls() computes the majority, writes the CalendarEvent, and notifies everyone — not yet wired to a scheduler (see closeExpiredPolls.ts).",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,7 +11,8 @@
     "type-check": "tsc -b",
     "test": "vitest run",
     "start": "node dist/server.js",
-    "trigger": "node dist/cli.js"
+    "trigger": "node dist/cli.js",
+    "close-polls": "node dist/closePollsCli.js"
   },
   "dependencies": {
     "@klendoo/db": "*",

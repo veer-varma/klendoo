@@ -2,7 +2,7 @@
   "name": "@klendoo/followup-reminder-agent",
   "version": "0.0.0",
   "private": true,
-  "description": "Agent 3 — Reminder & Follow-up. Sends a reminder email via Postmark and settles a payment-core action.",
+  "description": "Agent 3 — Reminder & Follow-up. A real x402-gated GET /agents/reminder endpoint: caller pays via a custodial wallet (Intermezzo), payment-core logs the settlement, then the handler sends the reminder via Postmark.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,13 +10,19 @@
     "build": "tsc -b",
     "type-check": "tsc -b",
     "test": "vitest run",
+    "start": "node dist/server.js",
     "trigger": "node dist/cli.js"
   },
   "dependencies": {
     "@klendoo/db": "*",
-    "@klendoo/payment-core": "*"
+    "@klendoo/payment-core": "*",
+    "@x402/express": "^2.21.0",
+    "@x402/extensions": "^2.21.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
   },
   "devDependencies": {
+    "@types/express": "^5.0.1",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

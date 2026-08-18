@@ -2,7 +2,7 @@
   "name": "@klendoo/payment-core",
   "version": "0.0.0",
   "private": true,
-  "description": "x402 settlement SDK. Sprint 0 skeleton: settle(actionType, amount) -> txnHash, PlatformSetting-driven pricing, facilitator abstracted so GoPlausible can be swapped (see Development Plan risks table).",
+  "description": "x402 resource-server helpers: exposes Klendoo agent actions as real @x402/express-gated paid endpoints, settled by the GoPlausible facilitator, logged to ClientInteraction.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,7 +12,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@klendoo/db": "*"
+    "@klendoo/db": "*",
+    "@x402/avm": "^2.21.0",
+    "@x402/core": "^2.21.0",
+    "@x402/express": "^2.21.0",
+    "@x402/extensions": "^2.21.0"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

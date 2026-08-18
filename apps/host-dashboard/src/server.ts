@@ -13,6 +13,23 @@ import {
 } from "./session.js";
 import { renderLoginPage, renderLinkSentPage, renderVerifyFailedPage } from "./loginPage.js";
 import { renderDashboardPage } from "./dashboardPage.js";
+import { listContacts, addContact, importContacts, deleteContact, InvalidContactError } from "./contacts.js";
+import { renderContactsPage } from "./contactsPage.js";
+import { createHostMeeting, listHostMeetings, getHostMeeting, InvalidMeetingError } from "./meetings.js";
+import { renderMeetingsPage } from "./meetingsPage.js";
+import { renderNewMeetingPage } from "./newMeetingPage.js";
+import { renderMeetingDetailPage } from "./meetingDetailPage.js";
+
+function formatDate(d: Date): string {
+  return d.toISOString().slice(0, 16).replace("T", " ");
+}
+
+/** express.urlencoded gives a single string for one occurrence of a repeated
+ * field name, or an array for two-plus — normalize to always an array. */
+function toArray(value: unknown): string[] {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? (value as string[]) : [value as string];
+}
 
 const PORT = Number(process.env.PORT ?? 4024);
 
@@ -116,6 +133,152 @@ async function main() {
         // /c/:slug ships in Sprint 6c (same overnight batch) — shown here
         // ahead of that route existing since all three sprints merge together.
         publicCalendarUrl: `${publicBaseUrl}/c/${host.slug}`,
+      }),
+    );
+  });
+
+  // ---------- contacts (protected) ----------
+
+  app.get("/contacts", requireHostSession, async (req, res) => {
+    const hostId = (req as Request & { hostId: string }).hostId;
+    const contacts = await listContacts(hostId);
+    res.type("html").send(
+      renderContactsPage(
+        contacts.map((c) => ({ id: c.id, name: c.name, phone: c.phone })),
+        typeof req.query.flash === "string" ? req.query.flash : undefined,
+      ),
+    );
+  });
+
+  app.post("/contacts", requireHostSession, async (req, res) => {
+    const hostId = (req as Request & { hostId: string }).hostId;
+    const { name, phone } = req.body as { name?: string; phone?: string };
+    try {
+      await addContact(hostId, name ?? "", phone ?? "");
+      res.redirect("/contacts?flash=" + encodeURIComponent("Contact saved."));
+    } catch (err) {
+      const message = err instanceof InvalidContactError ? err.message : "Could not save contact — see server logs.";
+      if (!(err instanceof InvalidContactError)) console.error("addContact failed:", err);
+      res.redirect("/contacts?flash=" + encodeURIComponent(message));
+    }
+  });
+
+  app.post("/contacts/import", requireHostSession, async (req, res) => {
+    const hostId = (req as Request & { hostId: string }).hostId;
+    const { contacts: rawText } = req.body as { contacts?: string };
+    try {
+      const result = await importContacts(hostId, rawText ?? "");
+      res.redirect(
+        "/contacts?flash=" +
+          encodeURIComponent(`Imported ${result.created} contact(s), skipped ${result.skipped}.`),
+      );
+    } catch (err) {
+      console.error("importContacts failed:", err);
+      res.redirect("/contacts?flash=" + encodeURIComponent("Import failed — see server logs."));
+    }
+  });
+
+  app.post("/contacts/:id/delete", requireHostSession, async (req, res) => {
+    const hostId = (req as Request & { hostId: string }).hostId;
+    await deleteContact(hostId, req.params.id);
+    res.redirect("/contacts?flash=" + encodeURIComponent("Contact removed."));
+  });
+
+  // ---------- meetings (protected) ----------
+
+  app.get("/meetings", requireHostSession, async (req, res) => {
+    const hostId = (req as Request & { hostId: string }).hostId;
+    const meetings = await listHostMeetings(hostId);
+    res.type("html").send(
+      renderMeetingsPage(
+        meetings.map((m) => ({
+          id: m.id,
+          title: m.title,
+          status: m.status,
+          deadline: formatDate(m.deadline),
+          inviteeCount: m.invitees.length,
+        })),
+        typeof req.query.flash === "string" ? req.query.flash : undefined,
+      ),
+    );
+  });
+
+  app.get("/meetings/new", requireHostSession, async (req, res) => {
+    const hostId = (req as Request & { hostId: string }).hostId;
+    const contacts = await listContacts(hostId);
+    res.type("html").send(
+      renderNewMeetingPage(
+        contacts.map((c) => ({ id: c.id, name: c.name, phone: c.phone })),
+        typeof req.query.flash === "string" ? req.query.flash : undefined,
+      ),
+    );
+  });
+
+  app.post("/meetings", requireHostSession, async (req, res) => {
+    const hostId = (req as Request & { hostId: string }).hostId;
+    const body = req.body as Record<string, unknown>;
+
+    const slotStarts = toArray(body.slotStart);
+    const slotEnds = toArray(body.slotEnd);
+    const slots = slotStarts
+      .map((startTime, i) => ({ startTime, endTime: slotEnds[i] ?? "" }))
+      .filter((s) => s.startTime && s.endTime);
+
+    // Contact names aren't posted back — only their id (checkbox value) and
+    // a filled-in email input — so look the names up from the host's saved
+    // contacts, keyed by id, rather than trying to line up array indices.
+    const contactChecked = toArray(body.contactChecked);
+    const contactNameById =
+      contactChecked.length > 0
+        ? new Map((await listContacts(hostId)).map((c) => [c.id, c.name]))
+        : new Map<string, string>();
+    const contactInvitees = contactChecked
+      .map((contactId) => ({
+        name: contactNameById.get(contactId) ?? "",
+        email: typeof body[`contactEmail_${contactId}`] === "string" ? (body[`contactEmail_${contactId}`] as string) : "",
+      }))
+      .filter((i) => i.name && i.email);
+
+    const freeformNames = toArray(body.inviteeName);
+    const freeformEmails = toArray(body.inviteeEmail);
+    const freeformInvitees = freeformNames
+      .map((name, i) => ({ name, email: freeformEmails[i] ?? "" }))
+      .filter((i) => i.name && i.email);
+
+    try {
+      const poll = await createHostMeeting(hostId, {
+        title: typeof body.title === "string" ? body.title : "",
+        deadline: typeof body.deadline === "string" ? body.deadline : "",
+        slots,
+        invitees: [...contactInvitees, ...freeformInvitees],
+      });
+      res.redirect(`/meetings/${poll.id}?flash=` + encodeURIComponent("Draft meeting created."));
+    } catch (err) {
+      const message = err instanceof InvalidMeetingError ? err.message : "Could not create meeting — see server logs.";
+      if (!(err instanceof InvalidMeetingError)) console.error("createHostMeeting failed:", err);
+      res.redirect("/meetings/new?flash=" + encodeURIComponent(message));
+    }
+  });
+
+  app.get("/meetings/:id", requireHostSession, async (req, res) => {
+    const hostId = (req as Request & { hostId: string }).hostId;
+    const meeting = await getHostMeeting(hostId, req.params.id);
+    if (!meeting) {
+      res.status(404).send("Not found.");
+      return;
+    }
+    res.type("html").send(
+      renderMeetingDetailPage({
+        id: meeting.id,
+        title: meeting.title,
+        status: meeting.status,
+        deadline: formatDate(meeting.deadline),
+        slots: meeting.slots.map((s) => ({ startTime: formatDate(s.startTime), endTime: formatDate(s.endTime) })),
+        invitees: meeting.invitees.map((i) => ({
+          name: i.name,
+          email: i.email,
+          respondedAt: i.respondedAt ? formatDate(i.respondedAt) : null,
+        })),
       }),
     );
   });

@@ -68,7 +68,8 @@ backlog entries.
   signal source — they default to neutral 0.5 until Google Calendar
   (post-launch) and Layer 2 relationship tracking exist. See
   `packages/trust-graph/README.md` for the full honest accounting.
-- Sprint 5c (real Super Admin UI) — not started.
+- Sprint 5c (real Super Admin UI) — done, see "Done" below. Closes the
+  admin-auth gap above and the "Plans" editing UI Sprint 4 never got.
 
 ## Deferred product scope (deliberate cuts, not forgotten)
 
@@ -90,11 +91,10 @@ backlog entries.
 
 ## Real gaps surfaced answering "what's left before launch" (2026-08-18)
 
-- **No admin auth at all.** `/admin/*` routes in `host-onboarding` have
-  zero authentication (flagged in Sprint 4) — anyone who can reach them
-  can approve/reject a host. Must be fixed before a real Super Admin UI is
-  reachable from anywhere but localhost. This is a launch blocker, not
-  ordinary technical debt.
+- ~~**No admin auth at all.**~~ **Closed by Sprint 5c** — `/admin/*` now
+  requires a real (if intentionally minimal) signed-cookie session behind
+  `ADMIN_PASSWORD`. Single shared password, not per-admin accounts — fine
+  for a solo founder, revisit if the team grows.
 - **HostAccount isn't wired into the agents yet.** The Reminder agent
   (`BookingContext`) and Negotiation agent (`SchedulingPoll`) still take
   plain `hostName`/`hostEmail` strings — they don't reference a real
@@ -124,6 +124,14 @@ backlog entries.
 - **PR hygiene:** Sprint 3 (`sprint-3/poll-finalization`) was pushed but
   never turned into a PR — caught this at the start of Sprint 4. Check for
   this pattern before assuming "pushed" means "on its way to merging."
+- ~~**`@types/express` didn't match the actual `express` runtime.**~~
+  **Fixed in Sprint 5c** — every service had `express@^4.21.2` paired with
+  `@types/express@^5.0.1` since Sprint 1 (a real version mismatch, not
+  just staleness: Express 5's types changed route params to
+  `string | string[]`, which silently compiled until a route handler
+  actually needed a plain `string`). Pinned to `@types/express@^4.17.21`
+  everywhere. Worth a quick check that nothing else in the codebase
+  quietly relied on the wrong types.
 
 ## Done (for reference — what "done" looked like when it landed)
 
@@ -140,4 +148,7 @@ backlog entries.
   per-service `/.well-known/x402`, aggregated manifest generator (PR #10)
 - Sprint 5b — Trust/Confidence engine (Agent 4): `TrustEdge` schema,
   `@klendoo/trust-graph` (confidence formula, threshold classification),
-  usage-tracking wired into Reminder and Negotiation (PR pending)
+  usage-tracking wired into Reminder and Negotiation (PR #11)
+- Sprint 5c — real Super Admin UI: signed-cookie session auth,
+  Registrations/Hosts/Plans pages, plan editing (the interface Sprint 4's
+  "configurable... from the superadmin interface" needed) (PR pending)

@@ -1,0 +1,36 @@
+name: Temporary legacy web stop
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  stop-legacy-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure pinned SSH access
+        env:
+          DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          test "$(docker inspect --format '{{.State.Running}}' klendoo-db)" = true
+          if [ "$(docker inspect --format '{{.State.Running}}' klendoo-web)" = true ]; then
+            docker stop klendoo-web
+          fi
+          printf 'klendoo_web_running=%s\n' "$(docker inspect --format '{{.State.Running}}' klendoo-web)"
+          printf 'klendoo_db_running=%s\n' "$(docker inspect --format '{{.State.Running}}' klendoo-db)"
+          REMOTE
+          rm -f ~/.ssh/id_ed25519

@@ -24,11 +24,19 @@ outright (history of what was cut and why is worth keeping).
   Handoff, 2026-08-17) until a real TestNet settlement succeeds and there's
   fresh written sign-off.
 
+## Owned by Veer directly (not Manus, not this codebase's open questions)
+
+- **Payment gateway integration for Entrepreneur plan billing.** Veer will
+  send this over later (2026-08-17). Confirms the billing rail question
+  Sprint 4 had flagged as an inference — no longer open, just waiting on
+  the actual integration details/credentials. `StripeBillingProvider`
+  (`services/host-onboarding/src/billing/`) is built to receive whatever
+  this turns out to be — if it's not Stripe, swap the `BillingProvider`
+  implementation, the interface (`startSubscription`) doesn't assume Stripe
+  specifically.
+
 ## Open product decisions needed from Veer
 
-- **Entrepreneur setup fee payment rail: Stripe vs. direct USDC.** Flagged
-  in the Development Plan as unresolved; blocks Sprint 4's actual charge
-  step (see below).
 - **Reconsideration = courtesy notice or real re-vote?** Sprint 3 built it
   as a courtesy notice sent *after* the winning slot and calendar event are
   already decided — not a re-vote that could flip the outcome. That's my
@@ -88,3 +96,5 @@ outright (history of what was cut and why is worth keeping).
   respond flow, `@klendoo/email` extracted as shared infra (PR #7)
 - Sprint 3 — majority computation, poll finalization, reconsideration
   outreach, calendar event write (pushed, PR not yet opened — see above)
+- Sprint 4 — configurable `Plan`/`HostAccount` model, host registration +
+  admin approval, stubbed billing provider (pushed, PR not yet opened)

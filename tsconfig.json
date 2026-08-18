@@ -6,6 +6,7 @@
     { "path": "packages/payment-core" },
     { "path": "services/followup-reminder-agent" },
     { "path": "services/negotiation-agent" },
+    { "path": "services/host-onboarding" },
     { "path": "apps/landing" }
   ]
 }

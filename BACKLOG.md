@@ -47,20 +47,23 @@ outright (history of what was cut and why is worth keeping).
   already paid for. Worth confirming this matches the intended pricing
   model.
 
+## In progress — Sprint 5 (2026-08-18)
+
+Confirmed scope: Trust/Confidence engine (Agent 4), Bazaar listing (Agent
+5), and a real Super Admin UI, all three — split into sequential
+sub-branches/PRs rather than one giant PR, same reasoning as every prior
+sprint's size. Moved out of "Deferred" below since they're no longer just
+backlog entries.
+
 ## Deferred product scope (deliberate cuts, not forgotten)
 
-- **Google Calendar OAuth + sync.** Deferred per Veer's 2026-08-17
-  direction — Klendoo's own calendar (`CalendarEvent`) is the source of
-  truth for now. Google/Outlook become sync adapters into this same model
-  later, not a rebuild.
-- **Trust/Confidence engine (Agent 4).** `packages/trust-graph`,
-  confidence scoring, the 0.8/0.5 auto-act/confirm/manual thresholds — none
-  of this exists yet. The full three-layer `TrustEdge` model from the
-  Trust Graph Spec hasn't been built; host/action identity is still plain
-  string fields (`hostName`/`hostEmail`) everywhere.
-- **Bazaar listing manifest (Agent 5).** Flagged repeatedly as low-effort
-  and independent of everything else — never actually built. Good
-  candidate to pick up whenever there's spare capacity.
+- **Google Calendar OAuth + sync — explicitly post-launch** (confirmed
+  2026-08-18: "put in the backlog and we deal with that after launch").
+  Klendoo's own calendar (`CalendarEvent`) is the source of truth until
+  then. Google/Outlook become sync adapters into this same model later,
+  not a rebuild. Worth remembering the 2–4 week OAuth approval lag when
+  this does get picked up — start the application itself well before the
+  code work, since the lead time doesn't compress.
 - **Chat UI / negotiation via conversation.** The Development Plan paired
   this with the Negotiation agent; what got built instead is a plain
   poll-link flow, which is lighter and didn't need it.
@@ -69,9 +72,29 @@ outright (history of what was cut and why is worth keeping).
   triggered by hand (`close-polls` CLI) — nothing in this codebase runs on
   a timer yet. Needs actual deployed infrastructure (cron, scheduled
   workflow, worker service) to run it on, which doesn't exist yet.
-- **Super Admin console** — registrations approval, host/wallet
-  management. Currently only exists as a design mockup (the "Klendoo
-  Console" artifact), no real backend or UI code.
+
+## Real gaps surfaced answering "what's left before launch" (2026-08-18)
+
+- **No admin auth at all.** `/admin/*` routes in `host-onboarding` have
+  zero authentication (flagged in Sprint 4) — anyone who can reach them
+  can approve/reject a host. Must be fixed before a real Super Admin UI is
+  reachable from anywhere but localhost. This is a launch blocker, not
+  ordinary technical debt.
+- **HostAccount isn't wired into the agents yet.** The Reminder agent
+  (`BookingContext`) and Negotiation agent (`SchedulingPoll`) still take
+  plain `hostName`/`hostEmail` strings — they don't reference a real
+  `HostAccount` row. For hosts to actually use their own account (not a
+  manually-seeded test record) to create reminders/polls, this needs
+  connecting.
+- **No host login.** Nothing lets a `HostAccount` actually authenticate as
+  themselves — no password, no magic link, no session. Needed before a
+  host can use their own dashboard rather than an admin acting on their
+  behalf.
+- **Wallet provisioning isn't triggered on approval.** Per Veer's wallet
+  model, every host should get a Klendoo-funded custodial wallet — but
+  `approveHost()` doesn't call Intermezzo to create/fund one. Blocked
+  partly on Intermezzo's gateway URL (see deploy blockers above) but the
+  application-side call is also just not wired up yet.
 
 ## Technical debt
 
@@ -95,6 +118,6 @@ outright (history of what was cut and why is worth keeping).
 - Sprint 2 — scheduling poll data model, Negotiation agent draft/activate/
   respond flow, `@klendoo/email` extracted as shared infra (PR #7)
 - Sprint 3 — majority computation, poll finalization, reconsideration
-  outreach, calendar event write (pushed, PR not yet opened — see above)
+  outreach, calendar event write (PR #8)
 - Sprint 4 — configurable `Plan`/`HostAccount` model, host registration +
-  admin approval, stubbed billing provider (pushed, PR not yet opened)
+  admin approval, stubbed billing provider (PR #9)

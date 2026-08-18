@@ -30,6 +30,7 @@ interface FixturePoll {
 let pollFixture: FixturePoll;
 const updates: { model: string; args: unknown }[] = [];
 const created: { model: string; args: unknown }[] = [];
+const trustEdgeCalls: unknown[] = [];
 
 vi.mock("@klendoo/db", () => ({
   getDb: () => ({
@@ -51,6 +52,16 @@ vi.mock("@klendoo/db", () => ({
       update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
         updates.push({ model: "pollInvitee", args: { where, data } });
         return { id: where.id, ...data };
+      }),
+    },
+    // Only present so recordNegotiationTrust's underlying recordEdgeUsage
+    // call (via @klendoo/trust-graph) has something real to hit instead of
+    // throwing — its own error handling is unit-tested separately in
+    // recordNegotiationTrust.test.ts, this just confirms it's invoked.
+    trustEdge: {
+      upsert: vi.fn(async (args: unknown) => {
+        trustEdgeCalls.push(args);
+        return { id: "edge-1" };
       }),
     },
   }),
@@ -100,6 +111,7 @@ function makeFixture(overrides: Partial<FixturePoll> = {}): FixturePoll {
 beforeEach(() => {
   updates.length = 0;
   created.length = 0;
+  trustEdgeCalls.length = 0;
   pollFixture = makeFixture();
   process.env.PUBLIC_BASE_URL = "https://klendoo.com";
 });
@@ -137,6 +149,10 @@ describe("closeAndFinalizePoll", () => {
       (u) => u.model === "pollInvitee" && (u.args as { where: { id: string } }).where.id === "inv-jordan",
     );
     expect(inviteeUpdate).toBeDefined();
+
+    // Trust is recorded for the confirmed attendee (Alex), not the
+    // unavailable invitee (Jordan) — following through is the signal.
+    expect(trustEdgeCalls).toHaveLength(1);
   });
 
   it("cancels instead of finalizing when nobody marked anything available", async () => {

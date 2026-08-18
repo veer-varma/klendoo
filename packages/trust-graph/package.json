@@ -1,0 +1,21 @@
+{
+  "name": "@klendoo/trust-graph",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent 4 — Trust/Confidence engine. Per the Trust Graph Spec §3: a package, not a deployed microservice — services call this in-process. Internal only, never exposed on the Claude-facing MCP surface.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "type-check": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@klendoo/db": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -15,8 +15,16 @@
 // Sprint 4 adds Plan and HostAccount — real host registration/approval, per
 // Veer's 2026-08-17 direction: plans and pricing must be admin-configurable
 // data (Plan rows), never hardcoded constants — same principle already
-// applied to action pricing via PlatformSetting. Still no TrustEdge/
-// ClientAccessRequest/confidence-engine model — that's later scope.
+// applied to action pricing via PlatformSetting.
+//
+// Sprint 5b adds TrustEdge — Agent 4 (Trust/Confidence engine), matching
+// Klendoo_Product_Definition_Trust_Graph_Spec.md §1 exactly: one relational
+// table with an edgeType discriminator, not a graph database, not three
+// separate tables per layer. fromId/toId are plain strings (not foreign
+// keys) on purpose — per the spec, "the trusted party: client email or
+// User.id" — and matches every other identity field in this schema still
+// being plain strings pending the "connect HostAccount to the agents"
+// follow-up (see BACKLOG.md).
 
 generator client {
   provider = "prisma-client-js"
@@ -235,4 +243,43 @@ model HostAccount {
 
   @@index([status])
   @@map("host_accounts")
+}
+
+enum TrustEdgeType {
+  APPROVAL
+  RELATIONSHIP
+  AUTONOMY
+}
+
+/// One trust relationship: does `fromId` trust `toId` enough for
+/// `actionType`, right now — a one-hop question, per the spec's own
+/// reasoning for why this is one table and not a graph database. Usage is
+/// tracked (recordEdgeUsage) so confidenceScore can eventually be derived
+/// from real repeat-interaction data, not asserted.
+///
+/// Written to by Reminder/Negotiation today (see recordEdgeUsage calls in
+/// their agents) but nothing yet *reads* confidenceScore to gate behavior
+/// — the spec is explicit that the 0.8/0.5 thresholds are an unvalidated
+/// starting assumption, to be checked against real usage before anything
+/// downstream depends on them. This table exists to make that validation
+/// possible later, not to claim it's already validated.
+model TrustEdge {
+  id              String        @id @default(cuid())
+  fromId          String
+  toId            String
+  edgeType        TrustEdgeType
+  /// Plain string, not FK to any enum — matches actionType elsewhere
+  /// (ClientInteraction, PaymentOption.extra) staying data-shaped.
+  actionType      String
+  confidenceScore Float         @default(0)
+  reasoning       String?
+  usageCount      Int           @default(0)
+  lastUsedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  revokedAt       DateTime?
+  revokedReason   String?
+
+  @@unique([fromId, toId, actionType])
+  @@index([fromId])
+  @@map("trust_edges")
 }

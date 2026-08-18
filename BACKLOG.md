@@ -55,6 +55,21 @@ sub-branches/PRs rather than one giant PR, same reasoning as every prior
 sprint's size. Moved out of "Deferred" below since they're no longer just
 backlog entries.
 
+- Sprint 5a (Bazaar, Agent 5) — done, see "Done" below.
+- Sprint 5b (Trust/Confidence engine, Agent 4) — done, see "Done" below.
+  **Real gap carried forward, not closed by this sprint:** nothing reads
+  `classifyConfidence()`'s output to actually gate any agent's behavior —
+  Reminder always sends, Negotiation's poll always runs its full process
+  regardless of any edge's score. The spec is explicit these thresholds
+  need validating against real usage before anything depends on them,
+  and there's no real usage yet — so this is deliberately data collection
+  only, not a claim that auto-act works. Also: `calendarConflictCertainty`
+  and `responseReliability` (2 of the 4 confidence factors) have no real
+  signal source — they default to neutral 0.5 until Google Calendar
+  (post-launch) and Layer 2 relationship tracking exist. See
+  `packages/trust-graph/README.md` for the full honest accounting.
+- Sprint 5c (real Super Admin UI) — not started.
+
 ## Deferred product scope (deliberate cuts, not forgotten)
 
 - **Google Calendar OAuth + sync — explicitly post-launch** (confirmed
@@ -121,3 +136,8 @@ backlog entries.
   outreach, calendar event write (PR #8)
 - Sprint 4 — configurable `Plan`/`HostAccount` model, host registration +
   admin approval, stubbed billing provider (PR #9)
+- Sprint 5a — Bazaar listing manifest (Agent 5): shared merchant metadata,
+  per-service `/.well-known/x402`, aggregated manifest generator (PR #10)
+- Sprint 5b — Trust/Confidence engine (Agent 4): `TrustEdge` schema,
+  `@klendoo/trust-graph` (confidence formula, threshold classification),
+  usage-tracking wired into Reminder and Negotiation (PR pending)

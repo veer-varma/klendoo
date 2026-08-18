@@ -25,6 +25,27 @@
 // User.id" — and matches every other identity field in this schema still
 // being plain strings pending the "connect HostAccount to the agents"
 // follow-up (see BACKLOG.md).
+//
+// Sprint 6a adds MagicLinkToken — real host-facing login, per Veer's
+// 2026-08-18 direction ("I want all hosts to have a sign in page"). A host
+// is a different person per account, so this is a magic-link email (via
+// Postmark, already built) rather than the admin surface's single shared
+// password — a shared password only makes sense for the one solo admin.
+//
+// Sprint 6b adds Contact (name + phone, per Veer's direction) and a real
+// hostId on SchedulingPoll — the first time a host's own dashboard creates
+// polls tied to their account instead of the CLI-only seedPolls.ts path.
+// hostId is optional/nullable on purpose: existing CLI-seeded polls have no
+// HostAccount row behind them, and the negotiation-agent's own paid
+// endpoint still doesn't require one — this only wires the new
+// host-dashboard's writes, it doesn't retrofit history.
+//
+// Contact intentionally has no email field even though poll invitations are
+// still sent by email (Postmark) — Veer's request was specifically "name
+// and phone number", with email/voice as future channels. A host inviting
+// a saved contact to a poll today still has to type that person's email at
+// invite time; see BACKLOG.md "Contacts are phone-only but invites are
+// email-only" for the open product question this raises.
 
 generator client {
   provider = "prisma-client-js"
@@ -93,6 +114,10 @@ model SchedulingPoll {
   id            String     @id @default(cuid())
   hostName      String
   hostEmail     String
+  /// Sprint 6b — set when a host dashboard (as opposed to the CLI seed
+  /// path) creates the poll. See the Sprint 6b doc comment above for why
+  /// this is nullable rather than a required migration of existing rows.
+  hostId        String?
   title         String
   deadline      DateTime
   status        PollStatus @default(DRAFT)
@@ -104,12 +129,14 @@ model SchedulingPoll {
   openedAt      DateTime?
   closedAt      DateTime?
 
+  host      HostAccount?   @relation(fields: [hostId], references: [id])
   slots     PollSlot[]
   invitees  PollInvitee[]
   responses PollResponse[]
   event     CalendarEvent?
 
   @@index([status])
+  @@index([hostId])
   @@map("scheduling_polls")
 }
 
@@ -239,10 +266,32 @@ model HostAccount {
   createdAt            DateTime   @default(now())
   approvedAt           DateTime?
 
-  plan Plan @relation(fields: [planId], references: [id])
+  plan            Plan             @relation(fields: [planId], references: [id])
+  magicLinkTokens MagicLinkToken[]
+  contacts        Contact[]
+  polls           SchedulingPoll[]
 
   @@index([status])
   @@map("host_accounts")
+}
+
+/// A host's saved contact — name + phone number only, per Veer's explicit
+/// 2026-08-18 direction, and the seed of the future voice-controlled flow
+/// ("the host simply speaks and the app confirms its understanding"). See
+/// the Sprint 6b doc comment at the top of this file for why this has no
+/// email field even though today's poll invitations are still email-only.
+model Contact {
+  id        String   @id @default(cuid())
+  hostId    String
+  name      String
+  phone     String
+  createdAt DateTime @default(now())
+
+  host HostAccount @relation(fields: [hostId], references: [id])
+
+  @@unique([hostId, phone])
+  @@index([hostId])
+  @@map("contacts")
 }
 
 enum TrustEdgeType {
@@ -282,4 +331,23 @@ model TrustEdge {
   @@unique([fromId, toId, actionType])
   @@index([fromId])
   @@map("trust_edges")
+}
+
+/// A one-time login link sent to a host's email. Single-use (usedAt) and
+/// short-lived (expiresAt) — a stateless signed token alone can't enforce
+/// "only usable once," which matters for a login link specifically (an
+/// intercepted link should stop working after first use, not stay valid
+/// until it merely expires).
+model MagicLinkToken {
+  id        String    @id @default(cuid())
+  hostId    String
+  token     String    @unique @default(cuid())
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  host HostAccount @relation(fields: [hostId], references: [id])
+
+  @@index([hostId])
+  @@map("magic_link_tokens")
 }

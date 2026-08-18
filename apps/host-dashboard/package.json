@@ -1,8 +1,8 @@
 {
-  "name": "@klendoo/host-onboarding",
+  "name": "@klendoo/host-dashboard",
   "version": "0.0.0",
   "private": true,
-  "description": "Host registration, plan selection, and admin approval. Not one of the five agents from the Development Plan — this is platform/account functionality, not a paid per-action agent, so it has no x402 middleware.",
+  "description": "Host-facing sign-in + meeting/contact dashboard + public busy/free calendar (Sprint 6a/6b/6c), per Veer's 2026-08-18 direction. Not one of the five paid agents — this is account functionality, no x402 middleware, same reasoning as host-onboarding.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,12 +10,12 @@
     "build": "tsc -b",
     "type-check": "tsc -b",
     "test": "vitest run",
-    "start": "node dist/server.js",
-    "seed-plans": "node dist/seedPlans.js"
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "@klendoo/auth-session": "*",
     "@klendoo/db": "*",
+    "@klendoo/email": "*",
     "dotenv": "^16.4.5",
     "express": "^4.21.2"
   },

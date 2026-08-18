@@ -1,0 +1,18 @@
+{
+  "name": "@klendoo/auth-session",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Signed-cookie session helpers, shared across every login surface (admin password, host magic-link). Extracted from host-onboarding's admin session in Sprint 6a once a second surface needed the same thing — see git history.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "type-check": "tsc -b",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

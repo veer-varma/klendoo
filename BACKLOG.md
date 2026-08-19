@@ -4,40 +4,43 @@ Living document — update this alongside code changes, don't let it drift.
 Items move to "Done" with the PR/commit that closed them, never deleted
 outright (history of what was cut and why is worth keeping).
 
-## Blocking deploy (nothing ships until these clear)
+## Blocking deploy — launched 2026-08-19
 
-Substantially resolved 2026-08-19 — real deployment infra now exists (see
-"Done" below), the TestNet settlement gate passed (Manus, 2026-08-18), and
-every secret the deploy needs was already provisioned in GitHub before this
-PR was written. What's still actually open:
+`klendoo.com`, `staging.klendoo.com`, and `app.klendoo.com` are all live in
+production, serving the real app (verified directly: `/plans` returns real
+seeded plan data, `app.klendoo.com/login` renders the real magic-link form,
+all three have valid TLS). PR #18 merged, the guarded GitHub Actions
+workflow deployed it in 2m10s. What's left is real but no longer
+launch-blocking:
 
-- **DNS: `app.klendoo.com` has no A record yet.** `klendoo.com` and
-  `staging.klendoo.com` both already resolve to the VPS; `app.klendoo.com`
-  (host-dashboard's origin) doesn't, so its own Let's Encrypt certificate
-  will fail to issue until that record is added. Traefik retries
-  certificates per-router, so this doesn't block `klendoo.com`/
-  `staging.klendoo.com` from working — only the host dashboard's own
-  domain.
-- **Auth header to Intermezzo's gateway is ambiguous in Manus's own
-  docs** — the 2026-08-17 handoff's example contract shows `Authorization:
-  Bearer <token>`; the 2026-08-19 secret-inventory table's implementation
-  note for `KLENDOO_INTERMEZZO_API_KEY` says "Send only as the server-side
-  `X-Klendoo-API-Key` header." `intermezzoClient.ts` currently sends both
-  rather than guessing — worth confirming with Manus/Ops which one the
-  gateway actually checks and dropping the other.
-- **Legacy `klendoo-web`/`klendoo-db` decommissioning is now formally
+- ~~**DNS: `app.klendoo.com` has no A record.**~~ **Resolved same night** —
+  Manus added the record; confirmed live and serving traffic.
+- ~~**Auth header to Intermezzo's gateway was ambiguous.**~~ **Resolved
+  same night** — Manus confirmed only `X-Klendoo-API-Key` is correct; the
+  gateway creates its own `Authorization: Bearer <JWT>` to Intermezzo
+  internally. `intermezzoClient.ts` updated to send only that header
+  (was briefly sending both while this was unconfirmed).
+- **Legacy `klendoo-web`/`klendoo-db` decommissioning is formally
   gated, not just Claude's own standing refusal to delete a database.**
-  Manus's latest Claude Development Handoff (2026-08-18) makes it an
-  explicit rule: "Do not delete, recreate, migrate, or reuse it without an
-  approved backup and migration plan." `klendoo-web` is already stopped
-  (approved 2026-08-18); `klendoo-db`'s volume stays as a preserved
-  recovery asset until that separate approval happens. Manus's own
-  read-only inventory found every real table already at zero live rows, so
-  nothing of substance is actually at risk — but the backup/approval step
-  is Manus's rule now, not just a cautious default.
+  Manus's Claude Development Handoff (2026-08-18) makes it an explicit
+  rule: "Do not delete, recreate, migrate, or reuse it without an approved
+  backup and migration plan." `klendoo-web` is already stopped (approved
+  2026-08-18); `klendoo-db`'s volume stays as a preserved recovery asset
+  until that separate approval happens. Manus's own read-only inventory
+  found every real table already at zero live rows, so nothing of
+  substance is actually at risk — but the backup/approval step is Manus's
+  rule now, not just a cautious default.
 - **Mainnet explicitly not authorized** — reconfirmed in Manus's 2026-08-18
   refresh despite the TestNet gate passing: "Strictly blocked until a
   fresh written authorization is supplied."
+- **Note for next session**: a message relayed from Manus on 2026-08-19
+  claimed "no open release PR" and "main has neither a root
+  docker-compose.yml nor a Dockerfile" — independently re-verified against
+  GitHub directly (PR #18's merge, the file's raw content on `main`, and
+  the live site itself) and that claim was simply wrong/stale at the time
+  it was sent. Worth a heads-up to Veer/Manus so two agents don't build
+  conflicting deploy infra in parallel next time — check the actual repo
+  state before authoring a second `docker-compose.yml`.
 
 ## Owned by Veer directly (not Manus, not this codebase's open questions)
 

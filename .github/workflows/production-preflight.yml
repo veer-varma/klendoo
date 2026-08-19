@@ -1,0 +1,48 @@
+name: Production infrastructure preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/production-preflight.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Inspect Docker integration points
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install deployment key and pinned host entry
+        shell: bash
+        env:
+          VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_DEPLOY_KEY" > ~/.ssh/klendoo_deploy_key
+          chmod 600 ~/.ssh/klendoo_deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Read Docker networks and retained database state
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/klendoo_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 "${VPS_USER}@${VPS_HOST}" '
+            set -euo pipefail
+            echo "== Docker networks =="
+            docker network ls --format "{{.Name}} {{.Driver}} {{.Scope}}" | sort
+            echo "== Running container names and networks =="
+            docker ps --format "{{.Names}}" | while read -r name; do
+              printf "%s: " "$name"
+              docker inspect --format "{{range $key, $_ := .NetworkSettings.Networks}}{{$key}} {{end}}" "$name"
+            done
+            echo "== Legacy database state (must remain preserved) =="
+            docker inspect --format "name={{.Name}} status={{.State.Status}} mounts={{range .Mounts}}{{.Name}}:{{.Destination}} {{end}}" klendoo-db
+          '

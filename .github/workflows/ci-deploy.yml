@@ -77,6 +77,51 @@ jobs:
           printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
+      # /opt/klendoo/shared/.env is intentionally outside every per-release
+      # directory (rsync excludes .env/.env.* above) so it persists across
+      # deploys — most importantly DATABASE_URL, which must stay identical
+      # release to release or the next deploy can't authenticate against
+      # the existing Postgres volume. Rewritten every deploy from these
+      # secrets, which is safe: same values in, same file out.
+      #
+      # Every secret referenced here was already provisioned directly in
+      # GitHub by Manus/Veer on 2026-08-19 (see BACKLOG.md) — this step
+      # doesn't require adding anything new, just wiring the names through.
+      - name: Render production environment file on the VPS
+        if: steps.manifest.outputs.ready == 'true'
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
+          HOST_SESSION_SECRET: ${{ secrets.HOST_SESSION_SECRET }}
+          KLENDOO_PAYTO_ADDRESS: ${{ secrets.KLENDOO_PAYTO_ADDRESS }}
+          INTERMEZZO_GATEWAY_URL: ${{ secrets.INTERMEZZO_GATEWAY_URL }}
+          KLENDOO_INTERMEZZO_API_KEY: ${{ secrets.KLENDOO_INTERMEZZO_API_KEY }}
+          POSTMARK_SERVER_API_TOKEN: ${{ secrets.POSTMARK_SERVER_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/klendoo_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
+            "mkdir -p /opt/klendoo/shared && umask 077 && cat > /opt/klendoo/shared/.env" <<EOF
+          DATABASE_URL=${DATABASE_URL}
+          ADMIN_PASSWORD=${ADMIN_PASSWORD}
+          ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET}
+          HOST_SESSION_SECRET=${HOST_SESSION_SECRET}
+          KLENDOO_PAYTO_ADDRESS=${KLENDOO_PAYTO_ADDRESS}
+          ALGOD_NETWORK=testnet
+          FACILITATOR_URL=https://facilitator.goplausible.xyz
+          PUBLIC_BASE_URL=https://klendoo.com
+          HOST_DASHBOARD_BASE_URL=https://app.klendoo.com
+          DEFAULT_ACTION_PRICE_USDC=0.15
+          INTERMEZZO_GATEWAY_URL=${INTERMEZZO_GATEWAY_URL}
+          KLENDOO_INTERMEZZO_API_KEY=${KLENDOO_INTERMEZZO_API_KEY}
+          POSTMARK_SERVER_API_TOKEN=${POSTMARK_SERVER_API_TOKEN}
+          POSTMARK_FROM_EMAIL=ops@klendoo.com
+          ACME_EMAIL=ops@klendoo.com
+          EOF
+
       - name: Publish release and run Compose deployment
         if: steps.manifest.outputs.ready == 'true'
         shell: bash

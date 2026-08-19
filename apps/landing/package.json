@@ -10,6 +10,7 @@
     "build": "tsc -b",
     "type-check": "tsc -b",
     "test": "vitest run",
+    "start": "node dist/server.js",
     "generate:transparency": "node dist/transparency/generate.js",
     "generate:manifest": "node dist/wellKnown/generate.js"
   },
@@ -17,9 +18,12 @@
     "@klendoo/bazaar-listing": "*",
     "@klendoo/db": "*",
     "@klendoo/payment-core": "*",
-    "@x402/avm": "^2.21.0"
+    "@x402/avm": "^2.21.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

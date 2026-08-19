@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+dist
+**/dist
+generated
+**/generated
+*.tsbuildinfo
+**/*.tsbuildinfo
+.git
+.github
+.env
+.env.*
+!.env.example
+scratchpad

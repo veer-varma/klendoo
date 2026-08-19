@@ -6,23 +6,38 @@ outright (history of what was cut and why is worth keeping).
 
 ## Blocking deploy (nothing ships until these clear)
 
-- **Legacy VPS stack unresolved.** `klendoo-web`/`klendoo-db` (a separate,
-  older deployment) still own `klendoo.com` and `staging.klendoo.com`.
-  Manus's own inventory plan never got past Stage 1 — blocked on real VPS
-  shell access (Hostinger web terminal 403s, SSH root recovery failed
-  twice). "Staging" isn't actually isolated today — it aliases production.
-- **Intermezzo gateway URL not finalized.** `INTERMEZZO_GATEWAY_URL` has no
-  value yet; the Klendoo-side adapter (`payViaIntermezzo`) is built and
-  tested but has never been exercised against a live gateway.
-- **No real settlement tested end-to-end.** Intermezzo's TestNet wallets
-  (manager + disposable payer) have ALGO but zero USDC — blocked on a
-  Circle TestNet faucet rate limit, last we heard from Manus.
-- **`KLENDOO_PAYTO_ADDRESS` unconfirmed.** Every paid endpoint's server
-  refuses to start without it set. Current best guess is the Intermezzo
-  manager wallet — never explicitly confirmed as the right address.
-- **Mainnet explicitly not authorized** (Manus's Claude Development
-  Handoff, 2026-08-17) until a real TestNet settlement succeeds and there's
-  fresh written sign-off.
+Substantially resolved 2026-08-19 — real deployment infra now exists (see
+"Done" below), the TestNet settlement gate passed (Manus, 2026-08-18), and
+every secret the deploy needs was already provisioned in GitHub before this
+PR was written. What's still actually open:
+
+- **DNS: `app.klendoo.com` has no A record yet.** `klendoo.com` and
+  `staging.klendoo.com` both already resolve to the VPS; `app.klendoo.com`
+  (host-dashboard's origin) doesn't, so its own Let's Encrypt certificate
+  will fail to issue until that record is added. Traefik retries
+  certificates per-router, so this doesn't block `klendoo.com`/
+  `staging.klendoo.com` from working — only the host dashboard's own
+  domain.
+- **Auth header to Intermezzo's gateway is ambiguous in Manus's own
+  docs** — the 2026-08-17 handoff's example contract shows `Authorization:
+  Bearer <token>`; the 2026-08-19 secret-inventory table's implementation
+  note for `KLENDOO_INTERMEZZO_API_KEY` says "Send only as the server-side
+  `X-Klendoo-API-Key` header." `intermezzoClient.ts` currently sends both
+  rather than guessing — worth confirming with Manus/Ops which one the
+  gateway actually checks and dropping the other.
+- **Legacy `klendoo-web`/`klendoo-db` decommissioning is now formally
+  gated, not just Claude's own standing refusal to delete a database.**
+  Manus's latest Claude Development Handoff (2026-08-18) makes it an
+  explicit rule: "Do not delete, recreate, migrate, or reuse it without an
+  approved backup and migration plan." `klendoo-web` is already stopped
+  (approved 2026-08-18); `klendoo-db`'s volume stays as a preserved
+  recovery asset until that separate approval happens. Manus's own
+  read-only inventory found every real table already at zero live rows, so
+  nothing of substance is actually at risk — but the backup/approval step
+  is Manus's rule now, not just a cautious default.
+- **Mainnet explicitly not authorized** — reconfirmed in Manus's 2026-08-18
+  refresh despite the TestNet gate passing: "Strictly blocked until a
+  fresh written authorization is supplied."
 
 ## Owned by Veer directly (not Manus, not this codebase's open questions)
 
@@ -170,6 +185,33 @@ sprint — built in one overnight session, to be reviewed/merged together.
   actually needed a plain `string`). Pinned to `@types/express@^4.17.21`
   everywhere. Worth a quick check that nothing else in the codebase
   quietly relied on the wrong types.
+- ~~**Real `@x402/avm` bug: `ALGORAND_MAINNET_CAIP2`/`ALGORAND_TESTNET_CAIP2`
+  are truncated.**~~ **Found and worked around 2026-08-19**, first time any
+  service ever booted against the real GoPlausible facilitator end-to-end
+  (every prior test mocked it). Confirmed against the live facilitator's
+  own `/supported` response and reproduced in the package's latest
+  published version, 2.23.0, so not a stale-lockfile issue: the package's
+  own CAIP-2 constants are 32 base64 chars of the genesis hash instead of
+  the full 44 (e.g. testnet is missing the trailing `xi9/cOUJOiI=`), so
+  `createResourceServer()` hard-fails at startup with
+  `RouteConfigurationError: missing_facilitator` — the facilitator never
+  has an exact string match for the truncated network id. Worked around in
+  `packages/payment-core/src/network.ts` and
+  `packages/bazaar-listing/src/buildManifest.ts` by building the CAIP-2
+  string from the package's own (correct) `ALGORAND_*_GENESIS_HASH`
+  exports instead of trusting its derived constant — `@x402/avm`'s own
+  internal normalization already treats both forms as equivalent, so
+  nothing else needed to change. Worth reporting upstream.
+- ~~**`packages/db/prisma` had no migration history.**~~ **Found and fixed
+  2026-08-19**, same first-real-boot discovery — `prisma generate` (client
+  codegen) had been run every sprint, but `prisma migrate dev` never had
+  been, so `prisma/migrations/` didn't exist and `prisma migrate deploy`
+  had nothing to apply against a fresh database. Generated the initial
+  migration against a real local Postgres and committed it
+  (`packages/db/prisma/migrations/20260819023257_init/`). Any future
+  schema change now needs a real `prisma migrate dev` to add a migration
+  file, not just an edit to `schema.prisma` — the old habit of "just edit
+  the schema, run generate" silently stops working from here.
 
 ## Done (for reference — what "done" looked like when it landed)
 
@@ -204,3 +246,23 @@ sprint — built in one overnight session, to be reviewed/merged together.
   blocks for the next 60 days (no meeting titles or attendee info — per
   Veer's explicit "Busy/free only" answer), 404s for an unapproved or
   unknown slug rather than confirming the business exists (PR #15)
+- Deploy infra (2026-08-19) — first real `Dockerfile`/`docker-compose.yml`/
+  Traefik config in the repo, `apps/landing` given an actual server (was
+  static-generator scripts only, no homepage), initial Prisma migration
+  generated, `ci-deploy.yml` extended to render `/opt/klendoo/shared/.env`
+  from GitHub Actions secrets — all of which (`DATABASE_URL`,
+  `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `HOST_SESSION_SECRET`,
+  `KLENDOO_PAYTO_ADDRESS`, `INTERMEZZO_GATEWAY_URL`) were already
+  provisioned in GitHub by Manus the same day, so no new secrets needed
+  adding for this to be deployable. The new `db` Postgres service bootstraps
+  its own credentials by parsing `DATABASE_URL` (host `db`, database
+  `klendoo`, per Manus's Klendoo Environment Discovery) instead of a
+  second, separately-secreted password. Fully smoke-tested locally
+  end-to-end (Docker Desktop, real Postgres, real GoPlausible facilitator)
+  before ever touching the VPS — caught and fixed three real bugs this
+  way: an unpinned network/volume-naming bug that would have wiped the
+  database on every single redeploy, Traefik v3's `Host()` rule no longer
+  accepting multiple comma-separated arguments (v2-only syntax), and the
+  `@x402/avm` truncated-CAIP2 bug above (independently found and patched
+  by Manus in the running Intermezzo container the same day — this PR is
+  the durable source-level fix Manus's own notes asked for). (PR pending)

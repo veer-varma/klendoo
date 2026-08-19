@@ -45,4 +45,12 @@ jobs:
             done
             echo "== Legacy database state (must remain preserved) =="
             docker inspect --format "name={{.Name}} status={{.State.Status}} mounts={{range .Mounts}}{{.Name}}:{{.Destination}} {{end}}" klendoo-db
+            echo "== Discovered Klendoo application runtime provenance =="
+            docker ps --format "{{.Names}}" | grep -E "(followup-reminder-agent|landing|negotiation-agent|host-dashboard|host-onboarding|db)-1$" | while read -r name; do
+              docker inspect --format "name={{.Name}} image={{.Config.Image}} state={{.State.Status}} workdir={{.Config.WorkingDir}} mounts={{range .Mounts}}{{.Name}}:{{.Destination}} {{end}} networks={{range \$key, \$_ := .NetworkSettings.Networks}}{{\$key}} {{end}} labels={{json .Config.Labels}}" "$name"
+            done
+            echo "== Active Traefik runtime provenance =="
+            docker ps --format "{{.Names}}" | grep -- "-traefik-1$" | while read -r name; do
+              docker inspect --format "name={{.Name}} image={{.Config.Image}} state={{.State.Status}} mounts={{range .Mounts}}{{.Name}}:{{.Destination}} {{end}} networks={{range \$key, \$_ := .NetworkSettings.Networks}}{{\$key}} {{end}} labels={{json .Config.Labels}}" "$name"
+            done
           '

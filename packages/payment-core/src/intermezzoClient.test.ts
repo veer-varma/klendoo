@@ -10,7 +10,7 @@ function mockFetch(response: { ok: boolean; status: number; body: unknown }) {
 }
 
 describe("payViaIntermezzo", () => {
-  it("posts user_id and url to the gateway's x402/fetch route with the key on both header forms", async () => {
+  it("posts user_id and url to the gateway's x402/fetch route with only the scoped API-key header", async () => {
     const fetchImpl = mockFetch({ ok: true, status: 200, body: { status: 200, payer: "ADDR123" } });
 
     const result = await payViaIntermezzo("host-1", "https://klendoo.com/agents/reminder", {
@@ -24,12 +24,11 @@ describe("payViaIntermezzo", () => {
       "https://gateway.internal/v1/wallet/x402/fetch/",
       expect.objectContaining({
         method: "POST",
-        // Sent both ways — Manus's own docs disagree on which the gateway
-        // actually checks, see intermezzoClient.ts's comment.
-        headers: expect.objectContaining({
-          Authorization: "Bearer test-key",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
           "X-Klendoo-API-Key": "test-key",
-        }),
+        },
         body: JSON.stringify({ user_id: "host-1", url: "https://klendoo.com/agents/reminder" }),
       }),
     );

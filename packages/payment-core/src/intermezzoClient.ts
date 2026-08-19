@@ -13,8 +13,8 @@
  * `LZWJ3KVLO...` → `FCITWYEUGM...`) succeeded end-to-end on 2026-08-18 —
  * see Manus's Intermezzo TestNet Validation Status — confirming the gateway
  * itself, the network id, and the payer/receiver wallets all work; the only
- * thing that test doesn't confirm is which auth header this specific
- * client code should send (see below).
+ * thing that test does not itself establish is the application-client header
+ * contract; that contract is defined by the scoped gateway implementation.
  */
 
 const FETCH_PATH = "/v1/wallet/x402/fetch/";
@@ -72,16 +72,9 @@ export async function payViaIntermezzo(
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      // Manus's docs disagree with themselves on this: the 2026-08-17
-      // handoff's example contract shows `Authorization: Bearer <token>`,
-      // but the 2026-08-19 secret-inventory table's implementation note
-      // for KLENDOO_INTERMEZZO_API_KEY says "Send only as the server-side
-      // X-Klendoo-API-Key header." Sending both rather than guessing which
-      // is authoritative — harmless if the gateway ignores the one it
-      // doesn't check, and avoids silently breaking real payment calls on
-      // a launch night over an auth-header guess. Worth confirming with
-      // Manus/Ops and dropping whichever one turns out to be unused.
-      Authorization: `Bearer ${apiKey}`,
+      // The scoped gateway authenticates Klendoo with this opaque API key.
+      // It alone obtains and sends its short-lived Bearer JWT upstream to
+      // Intermezzo, so Klendoo must not send an Authorization header here.
       "X-Klendoo-API-Key": apiKey,
     },
     body: JSON.stringify({ user_id: userId, url }),

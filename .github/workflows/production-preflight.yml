@@ -41,7 +41,7 @@ jobs:
             echo "== Running container names and networks =="
             docker ps --format "{{.Names}}" | while read -r name; do
               printf "%s: " "$name"
-              docker inspect --format "{{range $key, $_ := .NetworkSettings.Networks}}{{$key}} {{end}}" "$name"
+              docker inspect --format "{{range \$key, \$_ := .NetworkSettings.Networks}}{{\$key}} {{end}}" "$name"
             done
             echo "== Legacy database state (must remain preserved) =="
             docker inspect --format "name={{.Name}} status={{.State.Status}} mounts={{range .Mounts}}{{.Name}}:{{.Destination}} {{end}}" klendoo-db

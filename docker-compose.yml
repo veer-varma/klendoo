@@ -1,0 +1,263 @@
+# Klendoo production/TestNet-staging deployment — first real one (2026-08-19).
+#
+# Deployed by .github/workflows/ci-deploy.yml via `docker compose --env-file
+# /opt/klendoo/shared/.env up -d --build` on merge to main. That env file is
+# rendered by the same workflow from GitHub Actions secrets — see this
+# repo's BACKLOG.md for the full secret list and where each one comes from.
+#
+# Deliberately does NOT touch the legacy klendoo-deploy stack (klendoo-web/
+# klendoo-db/klendoo-traefik) — separate Docker networks, its own Postgres
+# volume that stays untouched (Manus's rules: preserved recovery asset,
+# needs a verified backup + separate approval before any deletion).
+# klendoo-web is already stopped (approved 2026-08-18) and the old Traefik
+# had already detached from ports 80/443 by the time this was written
+# (empirically confirmed — klendoo.com timed out with nothing listening) —
+# this stack owns 80/443 itself rather than sharing/duplicating them.
+#
+# Needs a DNS A record for `app.klendoo.com` -> the VPS before
+# host-dashboard's own Let's Encrypt certificate can issue — klendoo.com
+# and staging.klendoo.com already resolve, app.klendoo.com does not yet.
+#
+# Joins the pre-existing, separately-managed intermezzo-testnet-client
+# network (see /opt/intermezzo-testnet, veer-varma/intermezzo-infra) as an
+# external network — Intermezzo's own deployment is intentionally not
+# touched or redefined here, only attached to.
+
+# Explicit `name:` on every network/volume below is load-bearing, not
+# cosmetic: docker compose's default project name is the working directory's
+# basename, and ci-deploy.yml deploys each release into its own
+# /opt/klendoo/releases/<git-sha> directory. Without a pinned name, the
+# Postgres volume and the klendoo-edge network would both get a fresh
+# project-prefixed name on every single deploy — silently starting from an
+# empty database each release and breaking Traefik's docker-provider network
+# label (which must match the real network name to route at all). Caught by
+# local smoke-testing before the first real deploy (2026-08-19) — every
+# route 404'd and would have wiped data on the very next release otherwise.
+networks:
+  klendoo-edge:
+    name: klendoo-edge
+  klendoo-data:
+    name: klendoo-data
+    internal: true
+  intermezzo-testnet-client:
+    external: true
+
+volumes:
+  klendoo-db-data:
+    name: klendoo-db-data
+  klendoo-letsencrypt:
+    name: klendoo-letsencrypt
+
+x-service-defaults: &service_defaults
+  restart: unless-stopped
+  networks:
+    - klendoo-edge
+    - klendoo-data
+  environment: &common_env
+    # DATABASE_URL is passed straight through — already a single GitHub
+    # Actions secret (host `db`, database `klendoo`), not assembled from a
+    # separate password var. The `db` service below bootstraps its own
+    # Postgres credentials by parsing this same value.
+    DATABASE_URL: ${DATABASE_URL}
+    ALGOD_NETWORK: ${ALGOD_NETWORK:-testnet}
+    FACILITATOR_URL: ${FACILITATOR_URL:-https://facilitator.goplausible.xyz}
+    KLENDOO_PAYTO_ADDRESS: ${KLENDOO_PAYTO_ADDRESS}
+    PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://klendoo.com}
+    DEFAULT_ACTION_PRICE_USDC: ${DEFAULT_ACTION_PRICE_USDC:-0.15}
+    INTERMEZZO_GATEWAY_URL: ${INTERMEZZO_GATEWAY_URL}
+    KLENDOO_INTERMEZZO_API_KEY: ${KLENDOO_INTERMEZZO_API_KEY}
+    POSTMARK_SERVER_API_TOKEN: ${POSTMARK_SERVER_API_TOKEN}
+    POSTMARK_FROM_EMAIL: ${POSTMARK_FROM_EMAIL:-ops@klendoo.com}
+
+services:
+  # Klendoo's own new, private Postgres — per Manus's Klendoo Environment
+  # Discovery (2026-08-19): "The generated DATABASE_URL targets a future
+  # new private PostgreSQL service named `db`... rather than using the
+  # preserved legacy klendoo-db data store." Named `db` specifically
+  # because that hostname is baked into the already-provisioned
+  # DATABASE_URL secret. See db.Dockerfile for how it bootstraps its own
+  # credentials from that same secret instead of a second password.
+  db:
+    build:
+      context: .
+      dockerfile: db.Dockerfile
+    restart: unless-stopped
+    networks:
+      - klendoo-data
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    volumes:
+      - klendoo-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No published host port on purpose — Postgres stays reachable only from
+    # klendoo-data. Manus's rules are explicit: keep this new database
+    # private and never couple it to the preserved legacy klendoo-db.
+
+  # One-shot: applies pending migrations, then seeds the default plans
+  # (idempotent — see seedPlans.ts). The image build is identical to every
+  # other service (whole monorepo built regardless of SERVICE_DIR); this
+  # container just runs a different command instead of a long-lived server.
+  migrate:
+    <<: *service_defaults
+    build:
+      context: .
+      args:
+        SERVICE_DIR: services/host-onboarding
+    entrypoint: ["sh", "-c", "npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma && node services/host-onboarding/dist/seedPlans.js"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  landing:
+    <<: *service_defaults
+    build:
+      context: .
+      args:
+        SERVICE_DIR: apps/landing
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=klendoo-edge"
+      - "traefik.http.routers.landing.rule=Host(`klendoo.com`) || Host(`www.klendoo.com`) || Host(`staging.klendoo.com`)"
+      - "traefik.http.routers.landing.entrypoints=websecure"
+      - "traefik.http.routers.landing.tls.certresolver=le"
+      - "traefik.http.routers.landing.priority=1"
+      - "traefik.http.services.landing.loadbalancer.server.port=4020"
+
+  host-onboarding:
+    <<: *service_defaults
+    build:
+      context: .
+      args:
+        SERVICE_DIR: services/host-onboarding
+    environment:
+      <<: *common_env
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=klendoo-edge"
+      - "traefik.http.routers.host-onboarding.rule=(Host(`klendoo.com`) || Host(`staging.klendoo.com`)) && (PathPrefix(`/register`) || PathPrefix(`/admin`) || PathPrefix(`/plans`))"
+      - "traefik.http.routers.host-onboarding.entrypoints=websecure"
+      - "traefik.http.routers.host-onboarding.tls.certresolver=le"
+      - "traefik.http.routers.host-onboarding.priority=100"
+      - "traefik.http.services.host-onboarding.loadbalancer.server.port=4023"
+
+  host-dashboard:
+    <<: *service_defaults
+    build:
+      context: .
+      args:
+        SERVICE_DIR: apps/host-dashboard
+    environment:
+      <<: *common_env
+      HOST_SESSION_SECRET: ${HOST_SESSION_SECRET}
+      HOST_DASHBOARD_BASE_URL: ${HOST_DASHBOARD_BASE_URL:-https://app.klendoo.com}
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=klendoo-edge"
+      - "traefik.http.routers.host-dashboard.rule=Host(`app.klendoo.com`)"
+      - "traefik.http.routers.host-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.host-dashboard.tls.certresolver=le"
+      - "traefik.http.routers.host-dashboard.priority=10"
+      - "traefik.http.services.host-dashboard.loadbalancer.server.port=4024"
+
+  negotiation-agent:
+    <<: *service_defaults
+    build:
+      context: .
+      args:
+        SERVICE_DIR: services/negotiation-agent
+    networks:
+      - klendoo-edge
+      - klendoo-data
+      - intermezzo-testnet-client
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=klendoo-edge"
+      - "traefik.http.routers.negotiation-agent.rule=(Host(`klendoo.com`) || Host(`staging.klendoo.com`)) && (PathPrefix(`/agents/negotiate`) || PathPrefix(`/polls`))"
+      - "traefik.http.routers.negotiation-agent.entrypoints=websecure"
+      - "traefik.http.routers.negotiation-agent.tls.certresolver=le"
+      - "traefik.http.routers.negotiation-agent.priority=100"
+      - "traefik.http.services.negotiation-agent.loadbalancer.server.port=4022"
+
+  followup-reminder-agent:
+    <<: *service_defaults
+    build:
+      context: .
+      args:
+        SERVICE_DIR: services/followup-reminder-agent
+    networks:
+      - klendoo-edge
+      - klendoo-data
+      - intermezzo-testnet-client
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=klendoo-edge"
+      - "traefik.http.routers.reminder-agent.rule=(Host(`klendoo.com`) || Host(`staging.klendoo.com`)) && PathPrefix(`/agents/reminder`)"
+      - "traefik.http.routers.reminder-agent.entrypoints=websecure"
+      - "traefik.http.routers.reminder-agent.tls.certresolver=le"
+      - "traefik.http.routers.reminder-agent.priority=100"
+      - "traefik.http.services.reminder-agent.loadbalancer.server.port=4021"
+
+  traefik:
+    image: traefik:v3.6
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.docker.network=klendoo-edge"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.httpchallenge=true"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.le.acme.email=${ACME_EMAIL:-ops@klendoo.com}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--api.dashboard=false"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - klendoo-edge
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - klendoo-letsencrypt:/letsencrypt
+    depends_on:
+      - landing
+      - host-onboarding
+      - host-dashboard
+      - negotiation-agent
+      - followup-reminder-agent

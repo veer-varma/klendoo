@@ -44,8 +44,10 @@ jobs:
           readlink -f /opt/klendoo/current || true
           echo "== Compose projects =="
           docker compose ls
-          echo "== All Klendoo and Traefik containers =="
-          docker ps -a --format 'name={{.Names}} image={{.Image}} status={{.Status}} ports={{.Ports}}' | grep -E '(klendoo|traefik|host-dashboard|host-onboarding|landing|negotiation-agent|followup-reminder-agent)' || true
+          echo "== Every hash-named release container =="
+          docker ps -a --format 'name={{.Names}} image={{.Image}} status={{.Status}} ports={{.Ports}}' | grep -E 'name=[0-9a-f]{40}-' || true
+          echo "== Legacy Klendoo and Traefik containers =="
+          docker ps -a --format 'name={{.Names}} image={{.Image}} status={{.Status}} ports={{.Ports}}' | grep -E '(klendoo|traefik)' || true
           echo "== Relevant container provenance and router labels =="
           docker ps -a --format '{{.Names}}' | grep -E '(klendoo|traefik|host-dashboard|host-onboarding|landing|negotiation-agent|followup-reminder-agent)' | while read -r name; do
             docker inspect --format 'name={{.Name}} state={{.State.Status}} created={{.Created}} networks={{range $key, $_ := .NetworkSettings.Networks}}{{$key}} {{end}} mounts={{range .Mounts}}{{.Name}}:{{.Destination}} {{end}} labels={{json .Config.Labels}}' "$name"

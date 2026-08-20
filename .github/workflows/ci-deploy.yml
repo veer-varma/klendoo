@@ -122,7 +122,7 @@ jobs:
           ACME_EMAIL=ops@klendoo.com
           EOF
 
-      - name: Publish release and run Compose deployment
+      - name: Publish release and run stable Compose deployment
         if: steps.manifest.outputs.ready == 'true'
         shell: bash
         env:
@@ -138,5 +138,20 @@ jobs:
             --exclude '.env.*' \
             -e 'ssh -i ~/.ssh/klendoo_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes' \
             ./ "${VPS_USER}@${VPS_HOST}:${REMOTE_RELEASE}/"
-          ssh -i ~/.ssh/klendoo_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
-            "set -euo pipefail; cd '${REMOTE_RELEASE}'; docker compose --env-file /opt/klendoo/shared/.env up -d --build; ln -sfn '${REMOTE_RELEASE}' /opt/klendoo/current"
+          ssh -i ~/.ssh/klendoo_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "REMOTE_RELEASE='${REMOTE_RELEASE}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          # A release directory is intentionally immutable and named by SHA, but
+          # the running Compose project must be stable. Retire only earlier
+          # Klendoo release projects; `down` retains the explicitly named data
+          # and certificate volumes and never touches the legacy klendoo-deploy
+          # stack outside /opt/klendoo/releases.
+          for previous_release in /opt/klendoo/releases/*; do
+            [ -f "$previous_release/docker-compose.yml" ] || continue
+            previous_project="$(basename "$previous_release")"
+            docker compose -p "$previous_project" --env-file /opt/klendoo/shared/.env -f "$previous_release/docker-compose.yml" down --remove-orphans || true
+          done
+          cd "$REMOTE_RELEASE"
+          docker compose -p klendoo --env-file /opt/klendoo/shared/.env up -d --build --remove-orphans
+          ln -sfn "$REMOTE_RELEASE" /opt/klendoo/current
+          docker compose -p klendoo ps
+          REMOTE

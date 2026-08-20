@@ -1,0 +1,57 @@
+name: Temporary post-recovery verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/temporary-post-recovery-verification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify_runtime:
+    name: Verify stable project and preserved legacy database
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned SSH settings
+        shell: bash
+        env:
+          VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$VPS_DEPLOY_KEY" > ~/.ssh/klendoo_deploy_key
+          chmod 600 ~/.ssh/klendoo_deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Verify runtime state without modification
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/klendoo_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "bash -s" <<'REMOTE'
+          set -euo pipefail
+          echo "== Current release =="
+          readlink -f /opt/klendoo/current
+          echo "== Stable Klendoo project =="
+          docker compose -p klendoo ps
+          echo "== Hash-named release containers remaining =="
+          if docker ps -a --format '{{.Names}}' | grep -E '^[0-9a-f]{40}-'; then
+            echo "Unexpected hash-named release container remains" >&2
+            exit 1
+          fi
+          echo "none"
+          echo "== Legacy database preservation =="
+          docker inspect --format 'name={{.Name}} state={{.State.Status}} mounts={{range .Mounts}}{{.Name}}:{{.Destination}} {{end}}' klendoo-db
+          echo "== Legacy web remains stopped =="
+          docker inspect --format 'name={{.Name}} state={{.State.Status}}' klendoo-web
+          REMOTE

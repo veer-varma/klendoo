@@ -11,6 +11,12 @@ original Manus-generated value) — this commit exists to trigger the
 redeploy that picks up the new secret, since the deploy job only fires on
 an actual push to `main`, not a manual workflow re-run.
 
+**2026-08-22 (again):** the first rotation still rejected the real
+password at login — likely stray whitespace picked up from a copy/paste
+into the GitHub secret field, which the login form's exact-string compare
+doesn't tolerate. Password re-entered by typing directly rather than
+pasting; this commit triggers the second redeploy to pick it up.
+
 `klendoo.com`, `staging.klendoo.com`, and `app.klendoo.com` are all live in
 production, serving the real app (verified directly: `/plans` returns real
 seeded plan data, `app.klendoo.com/login` renders the real magic-link form,

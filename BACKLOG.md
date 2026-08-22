@@ -6,6 +6,11 @@ outright (history of what was cut and why is worth keeping).
 
 ## Blocking deploy — launched 2026-08-19
 
+**2026-08-22:** `ADMIN_PASSWORD` was rotated (Veer no longer had the
+original Manus-generated value) — this commit exists to trigger the
+redeploy that picks up the new secret, since the deploy job only fires on
+an actual push to `main`, not a manual workflow re-run.
+
 `klendoo.com`, `staging.klendoo.com`, and `app.klendoo.com` are all live in
 production, serving the real app (verified directly: `/plans` returns real
 seeded plan data, `app.klendoo.com/login` renders the real magic-link form,

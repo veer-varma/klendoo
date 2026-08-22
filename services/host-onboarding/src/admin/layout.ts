@@ -65,8 +65,9 @@ export function renderAdminLayout(input: AdminLayoutInput): string {
     .reject { color: var(--critical); border-color: var(--critical-soft); }
     form.inline { display: inline; }
     .flash { padding: 10px 14px; border-radius: 8px; background: var(--brand-soft); color: var(--brand-strong); font-size: 13px; margin-bottom: 16px; }
-    input[type="text"], input[type="number"], input[type="password"] { font-family: inherit; padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
+    input[type="text"], input[type="number"], input[type="password"], input[type="email"], select { font-family: inherit; padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
     .plan-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
     .logout { margin-top: 20px; font-size: 12px; color: var(--ink-faint); }
     .logout a { color: var(--ink-faint); }
   </style>

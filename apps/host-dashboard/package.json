@@ -16,6 +16,7 @@
     "@klendoo/auth-session": "*",
     "@klendoo/db": "*",
     "@klendoo/email": "*",
+    "@klendoo/host-auth": "*",
     "dotenv": "^16.4.5",
     "express": "^4.21.2"
   },

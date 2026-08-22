@@ -3,7 +3,7 @@ import "dotenv/config";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { getDb } from "@klendoo/db";
-import { requestMagicLink, verifyMagicLink, InvalidMagicLinkError } from "./magicLink.js";
+import { requestMagicLink, verifyMagicLink, InvalidMagicLinkError, WeakPasswordError } from "@klendoo/host-auth";
 import {
   SESSION_COOKIE_NAME,
   requireHostSessionSecret,
@@ -12,6 +12,8 @@ import {
   parseCookies,
 } from "./session.js";
 import { renderLoginPage, renderLinkSentPage, renderVerifyFailedPage } from "./loginPage.js";
+import { renderSetPasswordPage } from "./setPasswordPage.js";
+import { setHostPassword, verifyHostPassword, PasswordMismatchError } from "./hostPassword.js";
 import { renderDashboardPage } from "./dashboardPage.js";
 import { listContacts, addContact, importContacts, deleteContact, InvalidContactError } from "./contacts.js";
 import { renderContactsPage } from "./contactsPage.js";
@@ -83,6 +85,27 @@ async function main() {
     res.type("html").send(renderLinkSentPage());
   });
 
+  // Password login (Sprint 7a) — the primary path once a host has set one.
+  // Same generic-failure message for every case (unknown email, wrong
+  // password, no password set yet, non-approved host) so this can't be
+  // used to probe account existence or state.
+  app.post("/login/password", async (req, res) => {
+    const { email, password } = req.body as { email?: string; password?: string };
+    if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
+      res.type("html").status(400).send(renderLoginPage("Enter your email and password."));
+      return;
+    }
+
+    const hostId = await verifyHostPassword(email.trim(), password);
+    if (!hostId) {
+      res.type("html").status(401).send(renderLoginPage("Wrong email or password."));
+      return;
+    }
+
+    setHostSessionCookie(res, hostId);
+    res.redirect("/dashboard");
+  });
+
   app.get("/login/verify", async (req, res) => {
     const token = req.query.token;
     if (typeof token !== "string") {
@@ -91,12 +114,16 @@ async function main() {
     }
     try {
       const hostId = await verifyMagicLink(token);
-      const cookieValue = createHostSessionCookieValue(hostId, sessionSecret);
-      res.setHeader(
-        "Set-Cookie",
-        `${SESSION_COOKIE_NAME}=${cookieValue}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}`,
-      );
-      res.redirect("/dashboard");
+      setHostSessionCookie(res, hostId);
+
+      // A host with no password yet (either a brand-new self-registration
+      // or an admin-invited host on their first-ever visit) is routed to
+      // set one before reaching the dashboard — see
+      // requireHostSessionWithPassword below for the same gate applied to
+      // every other protected route, so this isn't just a one-time nudge
+      // that a direct dashboard visit could skip.
+      const host = await getDb().hostAccount.findUnique({ where: { id: hostId } });
+      res.redirect(host?.passwordHash ? "/dashboard" : "/set-password");
     } catch (err) {
       const message = err instanceof InvalidMagicLinkError ? err.message : "Sign-in failed — see server logs.";
       if (!(err instanceof InvalidMagicLinkError)) console.error("verifyMagicLink failed:", err);
@@ -109,6 +136,14 @@ async function main() {
     res.redirect("/login");
   });
 
+  function setHostSessionCookie(res: Response, hostId: string) {
+    const cookieValue = createHostSessionCookieValue(hostId, sessionSecret);
+    res.setHeader(
+      "Set-Cookie",
+      `${SESSION_COOKIE_NAME}=${cookieValue}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${30 * 24 * 60 * 60}`,
+    );
+  }
+
   function requireHostSession(req: Request, res: Response, next: NextFunction) {
     const cookies = parseCookies(req.headers.cookie);
     const hostId = verifyHostSessionCookieValue(cookies[SESSION_COOKIE_NAME], sessionSecret);
@@ -120,9 +155,55 @@ async function main() {
     res.redirect("/login");
   }
 
+  // Every protected route except /set-password itself uses this instead of
+  // requireHostSession directly — a host with no password set yet gets
+  // bounced to /set-password no matter which URL they land on, not just
+  // right after their magic-link click. One extra query per request; a
+  // deliberate tradeoff for actually enforcing the requirement rather than
+  // just suggesting it once.
+  async function requireHostSessionWithPassword(req: Request, res: Response, next: NextFunction) {
+    requireHostSession(req, res, async () => {
+      const hostId = (req as Request & { hostId: string }).hostId;
+      const host = await getDb().hostAccount.findUnique({ where: { id: hostId } });
+      if (!host) {
+        res.redirect("/login");
+        return;
+      }
+      if (!host.passwordHash) {
+        res.redirect("/set-password");
+        return;
+      }
+      next();
+    });
+  }
+
+  // ---------- set password (protected — session only, no password gate) ----------
+
+  app.get("/set-password", requireHostSession, (_req, res) => {
+    res.type("html").send(renderSetPasswordPage());
+  });
+
+  app.post("/set-password", requireHostSession, async (req, res) => {
+    const hostId = (req as Request & { hostId: string }).hostId;
+    const { password, confirmPassword } = req.body as { password?: string; confirmPassword?: string };
+    try {
+      await setHostPassword(hostId, password ?? "", confirmPassword ?? "");
+      res.redirect("/dashboard");
+    } catch (err) {
+      const message =
+        err instanceof PasswordMismatchError || err instanceof WeakPasswordError
+          ? err.message
+          : "Could not set password — see server logs.";
+      if (!(err instanceof PasswordMismatchError) && !(err instanceof WeakPasswordError)) {
+        console.error("setHostPassword failed:", err);
+      }
+      res.type("html").status(400).send(renderSetPasswordPage(message));
+    }
+  });
+
   // ---------- dashboard (protected) ----------
 
-  app.get("/dashboard", requireHostSession, async (req, res) => {
+  app.get("/dashboard", requireHostSessionWithPassword, async (req, res) => {
     const hostId = (req as Request & { hostId: string }).hostId;
     const db = getDb();
     const host = await db.hostAccount.findUnique({ where: { id: hostId } });
@@ -150,7 +231,7 @@ async function main() {
 
   // ---------- contacts (protected) ----------
 
-  app.get("/contacts", requireHostSession, async (req, res) => {
+  app.get("/contacts", requireHostSessionWithPassword, async (req, res) => {
     const hostId = (req as Request & { hostId: string }).hostId;
     const contacts = await listContacts(hostId);
     res.type("html").send(
@@ -161,7 +242,7 @@ async function main() {
     );
   });
 
-  app.post("/contacts", requireHostSession, async (req, res) => {
+  app.post("/contacts", requireHostSessionWithPassword, async (req, res) => {
     const hostId = (req as Request & { hostId: string }).hostId;
     const { name, phone } = req.body as { name?: string; phone?: string };
     try {
@@ -174,7 +255,7 @@ async function main() {
     }
   });
 
-  app.post("/contacts/import", requireHostSession, async (req, res) => {
+  app.post("/contacts/import", requireHostSessionWithPassword, async (req, res) => {
     const hostId = (req as Request & { hostId: string }).hostId;
     const { contacts: rawText } = req.body as { contacts?: string };
     try {
@@ -189,7 +270,7 @@ async function main() {
     }
   });
 
-  app.post("/contacts/:id/delete", requireHostSession, async (req, res) => {
+  app.post("/contacts/:id/delete", requireHostSessionWithPassword, async (req, res) => {
     const hostId = (req as Request & { hostId: string }).hostId;
     await deleteContact(hostId, req.params.id);
     res.redirect("/contacts?flash=" + encodeURIComponent("Contact removed."));
@@ -197,7 +278,7 @@ async function main() {
 
   // ---------- meetings (protected) ----------
 
-  app.get("/meetings", requireHostSession, async (req, res) => {
+  app.get("/meetings", requireHostSessionWithPassword, async (req, res) => {
     const hostId = (req as Request & { hostId: string }).hostId;
     const meetings = await listHostMeetings(hostId);
     res.type("html").send(
@@ -214,7 +295,7 @@ async function main() {
     );
   });
 
-  app.get("/meetings/new", requireHostSession, async (req, res) => {
+  app.get("/meetings/new", requireHostSessionWithPassword, async (req, res) => {
     const hostId = (req as Request & { hostId: string }).hostId;
     const contacts = await listContacts(hostId);
     res.type("html").send(
@@ -225,7 +306,7 @@ async function main() {
     );
   });
 
-  app.post("/meetings", requireHostSession, async (req, res) => {
+  app.post("/meetings", requireHostSessionWithPassword, async (req, res) => {
     const hostId = (req as Request & { hostId: string }).hostId;
     const body = req.body as Record<string, unknown>;
 
@@ -271,7 +352,7 @@ async function main() {
     }
   });
 
-  app.get("/meetings/:id", requireHostSession, async (req, res) => {
+  app.get("/meetings/:id", requireHostSessionWithPassword, async (req, res) => {
     const hostId = (req as Request & { hostId: string }).hostId;
     const meeting = await getHostMeeting(hostId, req.params.id);
     if (!meeting) {

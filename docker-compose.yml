@@ -144,6 +144,9 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      # Needed since Sprint 7a — admin-invited hosts land on host-dashboard,
+      # not this service, so the invite email's link needs its base URL.
+      HOST_DASHBOARD_BASE_URL: ${HOST_DASHBOARD_BASE_URL:-https://app.klendoo.com}
     depends_on:
       db:
         condition: service_healthy

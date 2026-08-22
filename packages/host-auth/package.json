@@ -1,0 +1,22 @@
+{
+  "name": "@klendoo/host-auth",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared host-identity primitives: magic-link creation/verification and password hashing. Extracted from apps/host-dashboard in Sprint 7a once services/host-onboarding needed the same magic-link mechanism for admin-initiated host invites — same extraction pattern as @klendoo/email and @klendoo/auth-session before it.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "type-check": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@klendoo/db": "*",
+    "@klendoo/email": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -263,6 +263,14 @@ model HostAccount {
   /// no live Stripe account provisioned yet).
   stripeCustomerId     String?
   stripeSubscriptionId String?
+  /// Null until the host completes their first magic-link sign-in and sets
+  /// one (Sprint 7a) — a host with no password yet can only sign in via
+  /// magic link; once set, password becomes the normal path and magic link
+  /// stays available as a fallback. scrypt-derived (see
+  /// @klendoo/host-auth/password.ts), never a plaintext or emailed value —
+  /// per Veer's 2026-08-22 direction, hosts set their own password after
+  /// their first magic-link visit rather than being emailed one.
+  passwordHash         String?
   createdAt            DateTime   @default(now())
   approvedAt           DateTime?
 

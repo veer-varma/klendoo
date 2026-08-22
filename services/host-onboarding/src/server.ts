@@ -4,6 +4,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { getDb } from "@klendoo/db";
 import { registerHost, PlanNotFoundError } from "./registerHost.js";
+import { inviteHost, InviteEmailFailedError } from "./inviteHost.js";
 import { approveHost, rejectHost, HostNotPendingError } from "./approveHost.js";
 import { updatePlan, InvalidPlanPriceError } from "./updatePlan.js";
 import {
@@ -26,6 +27,18 @@ function formatDate(d: Date | null): string {
   return d ? d.toISOString().slice(0, 16).replace("T", " ") : "";
 }
 
+/** Needed to build the invite email's sign-in link — the invited host
+ * lands on the host-dashboard app, not this admin service. */
+function requireHostDashboardBaseUrl(): string {
+  const url = process.env.HOST_DASHBOARD_BASE_URL;
+  if (!url) {
+    throw new Error(
+      "HOST_DASHBOARD_BASE_URL is not set — needed to build the invite link emailed to admin-invited hosts.",
+    );
+  }
+  return url.replace(/\/$/, "");
+}
+
 async function main() {
   const app = express();
   app.use(express.json());
@@ -33,6 +46,7 @@ async function main() {
 
   const adminPassword = requireAdminPassword();
   const sessionSecret = requireSessionSecret();
+  const hostDashboardBaseUrl = requireHostDashboardBaseUrl();
 
   // ---------- public API — not x402-gated, registration/plan-listing is
   // Klendoo's own account functionality, not a paid per-action agent ----------
@@ -93,10 +107,10 @@ async function main() {
   // ---------- admin UI — everything below requires a session ----------
 
   app.get("/admin", requireAdminSession, async (req, res) => {
-    const hosts = await getDb().hostAccount.findMany({
-      include: { plan: true },
-      orderBy: { createdAt: "desc" },
-    });
+    const [hosts, activePlans] = await Promise.all([
+      getDb().hostAccount.findMany({ include: { plan: true }, orderBy: { createdAt: "desc" } }),
+      getDb().plan.findMany({ where: { active: true }, orderBy: { createdAt: "asc" } }),
+    ]);
     res.type("html").send(
       renderRegistrationsPage(
         hosts.map((h) => ({
@@ -108,9 +122,32 @@ async function main() {
           planName: h.plan.name,
           createdAt: formatDate(h.createdAt),
         })),
+        activePlans.map((p) => ({ key: p.key, name: p.name })),
         typeof req.query.flash === "string" ? req.query.flash : undefined,
       ),
     );
+  });
+
+  app.post("/admin/hosts/invite", requireAdminSession, async (req, res) => {
+    try {
+      const { businessName, email, slug, planKey } = req.body as Record<string, string | undefined>;
+      await inviteHost(
+        { businessName: businessName ?? "", email: email ?? "", slug: slug ?? "", planKey: planKey ?? "" },
+        hostDashboardBaseUrl,
+      );
+      res.redirect("/admin?flash=" + encodeURIComponent("Invite sent."));
+    } catch (err) {
+      const message =
+        err instanceof PlanNotFoundError || err instanceof InviteEmailFailedError
+          ? err.message
+          : "Invite failed — see server logs.";
+      if (err instanceof InviteEmailFailedError) {
+        console.error("inviteHost: host created but invite email failed:", err);
+      } else if (!(err instanceof PlanNotFoundError)) {
+        console.error("inviteHost failed:", err);
+      }
+      res.redirect("/admin?flash=" + encodeURIComponent(message));
+    }
   });
 
   app.post("/admin/hosts/:id/approve", requireAdminSession, async (req, res) => {

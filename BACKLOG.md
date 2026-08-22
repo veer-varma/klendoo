@@ -279,4 +279,33 @@ sprint — built in one overnight session, to be reviewed/merged together.
   accepting multiple comma-separated arguments (v2-only syntax), and the
   `@x402/avm` truncated-CAIP2 bug above (independently found and patched
   by Manus in the running Intermezzo container the same day — this PR is
-  the durable source-level fix Manus's own notes asked for). (PR pending)
+  the durable source-level fix Manus's own notes asked for). (PR #18)
+- Intermezzo auth-header fix + compose stability (2026-08-19/22) —
+  `intermezzoClient.ts` sends only `X-Klendoo-API-Key` per Manus's
+  confirmation (was briefly sending both while the docs disagreed with
+  themselves — see BACKLOG.md history). Manus's own `fix/stable-compose-
+  release-project` (PR #23) separately hardened the deploy script itself
+  to pin `-p klendoo` as the Compose project name across releases — the
+  same class of instability this repo's own `docker-compose.yml` `name:`
+  fields already guarded against, just at the orchestration layer instead
+  of the file itself. (PR #21)
+- Sprint 7a — password-based host auth + admin-initiated invites
+  (2026-08-22, per Veer's direction): `HostAccount.passwordHash` (nullable
+  scrypt hash, Node built-in — no new dependency); `@klendoo/host-auth`
+  extracted from `apps/host-dashboard` (magic-link creation/verification,
+  now needed by `services/host-onboarding` too) with TTL cut from 15 to 10
+  minutes; a host sets a password after their first magic-link sign-in —
+  enforced on every protected route via `requireHostSessionWithPassword`,
+  not just a one-time nudge after `/login/verify`; password login is now
+  the primary path on `/login`, magic-link stays as a fallback. Admin's
+  Registrations page gained an "Invite a host directly" form
+  (`services/host-onboarding`) that creates the host already APPROVED
+  (skips the Pending queue — inviting them directly is itself the vetting
+  step) and sends the same invite-flavored magic link.
+  Fully smoke-tested locally end-to-end (Docker) — both the self-registration
+  and admin-invite paths verified through to password login. Caught one
+  real bug this way: `inviteHost()` created the host row before the invite
+  email send, so a Postmark failure left a real APPROVED host silently
+  existing while the admin saw a misleading "Invite failed" (implying
+  nothing happened). Fixed with a distinct `InviteEmailFailedError` that
+  names the host and says plainly it needs a manual resend. (PR pending)

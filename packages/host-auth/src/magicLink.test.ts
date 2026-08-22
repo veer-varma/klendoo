@@ -58,12 +58,20 @@ const fakePostmark = {
   }),
 } as unknown as import("@klendoo/email").PostmarkClient;
 
-const { requestMagicLink, verifyMagicLink, InvalidMagicLinkError } = await import("./magicLink.js");
+const { requestMagicLink, verifyMagicLink, sendMagicLinkEmail, InvalidMagicLinkError, MAGIC_LINK_TTL_MS } = await import(
+  "./magicLink.js"
+);
 
 beforeEach(() => {
   tokens.clear();
   sentEmails.length = 0;
   vi.clearAllMocks();
+});
+
+describe("MAGIC_LINK_TTL_MS", () => {
+  it("is 10 minutes", () => {
+    expect(MAGIC_LINK_TTL_MS).toBe(10 * 60 * 1000);
+  });
 });
 
 describe("requestMagicLink", () => {
@@ -72,6 +80,7 @@ describe("requestMagicLink", () => {
 
     expect(sentEmails).toHaveLength(1);
     expect(sentEmails[0].to).toBe("approved@example.com");
+    expect(sentEmails[0].subject).toBe("Your Klendoo sign-in link");
     expect(sentEmails[0].textBody).toContain("https://app.klendoo.com/login/verify?token=");
   });
 
@@ -85,6 +94,21 @@ describe("requestMagicLink", () => {
       requestMagicLink("nobody@example.com", "https://app.klendoo.com", fakePostmark),
     ).resolves.toBeUndefined();
     expect(sentEmails).toHaveLength(0);
+  });
+});
+
+describe("sendMagicLinkEmail with invite context", () => {
+  it("uses invite-flavored copy for admin-initiated invites", async () => {
+    await sendMagicLinkEmail(
+      { id: "host-3", email: "invited@example.com", businessName: "New Studio" },
+      "https://app.klendoo.com",
+      "invite",
+      fakePostmark,
+    );
+
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0].subject).toBe("You've been invited to Klendoo");
+    expect(sentEmails[0].textBody).toContain("added as a host on Klendoo");
   });
 });
 

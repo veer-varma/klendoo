@@ -13,8 +13,12 @@ function shell(title: string, body: string): string {
     .wordmark { font-weight: 700; font-size: 19px; margin-bottom: 6px; }
     .wordmark .mint { color: #14a37e; }
     p { font-size: 13.5px; color: #5b6072; line-height: 1.5; }
-    input[type="email"] { width: 100%; padding: 8px 10px; border: 1px solid #dee1e9; border-radius: 7px; font-size: 14px; margin: 14px 0 12px; box-sizing: border-box; }
-    button { width: 100%; padding: 9px; border-radius: 7px; border: none; background: #5b3fc4; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #5b6072; margin: 10px 0 4px; }
+    input[type="email"], input[type="password"] { width: 100%; padding: 8px 10px; border: 1px solid #dee1e9; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
+    button { width: 100%; margin-top: 14px; padding: 9px; border-radius: 7px; border: none; background: #5b3fc4; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; }
+    .divider { display: flex; align-items: center; gap: 10px; margin: 20px 0; color: #8992a8; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #dee1e9; }
+    .secondary form button { background: #fff; color: #4530a0; border: 1px solid #dee1e9; }
     .error { color: #a23b27; font-size: 12.5px; margin-top: 10px; }
     .success { color: #14a37e; font-size: 13px; }
   </style>
@@ -29,15 +33,28 @@ function shell(title: string, body: string): string {
 `;
 }
 
-export function renderLoginPage(): string {
+export function renderLoginPage(error?: string): string {
   return shell(
     "Sign in",
     `
-    <p>Enter your host account email and we'll send you a one-time sign-in link.</p>
-    <form method="post" action="/login">
-      <input type="email" name="email" placeholder="you@yourbusiness.com" autofocus required>
-      <button type="submit">Send sign-in link</button>
+    ${error ? `<div class="error">${escapeHtml(error)}</div>` : ""}
+    <form method="post" action="/login/password">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" placeholder="you@yourbusiness.com" autofocus required>
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required>
+      <button type="submit">Log in</button>
     </form>
+
+    <div class="divider">or</div>
+
+    <div class="secondary">
+      <p>Don't have a password yet, or forgot it? We'll email you a one-time sign-in link instead.</p>
+      <form method="post" action="/login">
+        <input type="email" name="email" placeholder="you@yourbusiness.com" required>
+        <button type="submit">Send sign-in link</button>
+      </form>
+    </div>
   `,
   );
 }
@@ -46,7 +63,7 @@ export function renderLinkSentPage(): string {
   return shell(
     "Check your email",
     `
-    <p class="success">If that email matches an approved host account, a sign-in link is on its way — it expires in 15 minutes.</p>
+    <p class="success">If that email matches an approved host account, a sign-in link is on its way — it expires in 10 minutes.</p>
     <p><a href="/login">Back to sign in</a></p>
   `,
   );

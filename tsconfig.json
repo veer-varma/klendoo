@@ -5,6 +5,7 @@
     { "path": "packages/bazaar-listing" },
     { "path": "packages/db" },
     { "path": "packages/email" },
+    { "path": "packages/host-auth" },
     { "path": "packages/payment-core" },
     { "path": "packages/trust-graph" },
     { "path": "services/followup-reminder-agent" },
